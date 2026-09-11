@@ -1,0 +1,21 @@
+node_modules/
+dist/
+*.log
+
+# File environment & credential (JANGAN di-push)
+.env
+.env.production
+*.local
+
+# Database lokal
+*.db
+*.db-journal
+
+# Credential Google Vision
+clouflare-*.json
+google-vision-service-account.json
+server/google-vision-service-account.json
+
+# Uploads (foto nota)
+server/uploads/*
+!server/uploads/.gitkeep

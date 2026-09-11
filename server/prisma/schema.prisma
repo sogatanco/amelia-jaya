@@ -1,0 +1,94 @@
+// Prisma schema - Pembukuan Toko Kelontong Amelia Jaya
+// Provider: MySQL (production & development). Set DATABASE_URL di .env dengan
+// format: mysql://user:password@host:3306/nama_database
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Nilai status/role disimpan sebagai String dan divalidasi di layer API (zod):
+// Role: ADMIN | CASHIER
+// BonTipe: CASH | CREDIT
+// BonStatus: DIPROSES | BELUM_LUNAS | LUNAS
+// SumberPengeluaran: MANUAL | BON
+// SumberDana: LACI | CASHFLOW | BANK | CAMPUR
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  username     String   @unique
+  passwordHash String
+  role         String   @default("CASHIER")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  closings DailyClosing[]
+  expenses Expense[]
+  bons     Bon[]
+}
+
+// Satu baris per tanggal dan sumber pemasukan (omset harian). Bisa diinput/diedit
+// belakangan karena closing jam nya fleksibel (misal omset kemarin baru
+// diinput hari ini/lusa).
+model DailyClosing {
+  id          String   @id @default(cuid())
+  tanggal     DateTime // tanggal transaksi (bukan tanggal input)
+  omset       Float
+  sumber      String   @default("KASIR")
+  catatan     String?
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tanggal, sumber])
+}
+
+model Expense {
+  id           String   @id @default(cuid())
+  tanggal      DateTime
+  kategori     String
+  jumlah       Float
+  keterangan   String?
+  sumber       String   @default("MANUAL")
+  sumberDana   String   @default("LACI")
+  dariLaci     Float    @default(0)
+  dariCashflow Float    @default(0)
+  dariBank     Float    @default(0)
+  bonId        String?  @unique
+  bon          Bon?     @relation(fields: [bonId], references: [id])
+  createdById  String
+  createdBy    User     @relation(fields: [createdById], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@index([tanggal])
+}
+
+// Nota / bon yang diupload (foto). Hasil OCR otomatis mengisi jumlah &
+// tanggal supaya tidak perlu ketik manual (tetap bisa dikoreksi).
+// tipe CASH -> otomatis jadi Expense. tipe CREDIT -> jadi tagihan (hutang).
+model Bon {
+  id            String    @id @default(cuid())
+  tanggal       DateTime
+  tipe          String
+  jumlah        Float?
+  supplier      String?
+  imagePath     String
+  ocrText       String?
+  ocrConfidence Float?
+  status        String    @default("DIPROSES")
+  jatuhTempo    DateTime?
+  paidAt        DateTime?
+  paidAmount    Float     @default(0)
+  caraBayar     String?
+  createdById   String
+  createdBy     User      @relation(fields: [createdById], references: [id])
+  createdAt     DateTime  @default(now())
+
+  expense Expense?
+
+  @@index([tipe, status])
+}
