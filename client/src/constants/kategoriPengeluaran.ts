@@ -18,6 +18,7 @@ export const KATEGORI_PENGELUARAN: KategoriPengeluaran[] = [
   { label: 'Listrik & Air', contoh: 'Listrik toko, air, token' },
   { label: 'Internet & Komunikasi', contoh: 'WiFi, pulsa, paket data' },
   { label: 'Gaji & Upah', contoh: 'Gaji penjaga, upah harian, lembur' },
+  { label: 'Belanja Bensin', contoh: 'Pembelian bensin untuk kebutuhan toko' },
   { label: 'Transportasi', contoh: 'Bensin, ongkos mengambil barang, parkir' },
   { label: 'Perawatan & Perbaikan', contoh: 'Kulkas, freezer, rak, lampu, komputer' },
   { label: 'Sewa', contoh: 'Sewa tempat, kios, gudang' },
