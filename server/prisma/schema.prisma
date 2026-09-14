@@ -58,7 +58,7 @@ model Expense {
   dariLaci     Float    @default(0)
   dariCashflow Float    @default(0)
   dariBank     Float    @default(0)
-  bonId        String?  @unique
+  bonId        String?
   bon          Bon?     @relation(fields: [bonId], references: [id])
   createdById  String
   createdBy    User     @relation(fields: [createdById], references: [id])
@@ -76,6 +76,7 @@ model Bon {
   tipe          String
   jumlah        Float?
   supplier      String?
+  kategori      String?
   imagePath     String
   ocrText       String?
   ocrConfidence Float?
@@ -88,7 +89,7 @@ model Bon {
   createdBy     User      @relation(fields: [createdById], references: [id])
   createdAt     DateTime  @default(now())
 
-  expense Expense?
+  expense Expense[]
 
   @@index([tipe, status])
 }

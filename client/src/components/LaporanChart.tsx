@@ -9,6 +9,9 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts';
 
 type Periode = 'harian' | 'mingguan' | 'bulanan';
@@ -20,6 +23,13 @@ interface ChartPoint {
   pengeluaran: number;
   labaRugi: number;
 }
+
+interface CategoryPoint {
+  name: string;
+  jumlah: number;
+}
+
+const CATEGORY_COLORS = ['#dc2626', '#ea580c', '#ca8a04', '#16a34a', '#0891b2', '#2563eb', '#7c3aed', '#db2777'];
 
 function formatRupiahSingkat(n: number) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + ' jt';
@@ -40,18 +50,22 @@ interface Props {
 export default function LaporanChart({ from, to }: Props) {
   const [periode, setPeriode] = useState<Periode>('harian');
   const [data, setData] = useState<ChartPoint[]>([]);
+  const [kategori, setKategori] = useState<CategoryPoint[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
     api
       .get('/reports/chart', { params: { from, to, periode } })
-      .then((res) => setData(res.data.data))
+      .then((res) => {
+        setData(res.data.data);
+        setKategori(res.data.kategori ?? []);
+      })
       .finally(() => setLoading(false));
   }, [from, to, periode]);
 
   return (
-    <section className="bg-white rounded-xl shadow p-4 space-y-3">
+    <section className="bg-white rounded-xl shadow p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-gray-800">Grafik Omset vs Pengeluaran</h3>
         <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5">
@@ -96,6 +110,29 @@ export default function LaporanChart({ from, to }: Props) {
             </BarChart>
           </ResponsiveContainer>
         </div>
+      )}
+
+      {!loading && kategori.length > 0 && (
+        <div className="border-t pt-4">
+          <h4 className="font-semibold text-gray-800 mb-2">Pengeluaran Berdasarkan Kategori</h4>
+          <div className="w-full h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={kategori} dataKey="jumlah" nameKey="name" cx="50%" cy="50%" outerRadius={88} labelLine={false}>
+                  {kategori.map((item, index) => (
+                    <Cell key={item.name} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => formatRupiah(Number(value ?? 0))} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {!loading && data.length === 0 && kategori.length === 0 && (
+        <p className="text-sm text-gray-400 py-8 text-center">Belum ada data pada periode ini.</p>
       )}
     </section>
   );

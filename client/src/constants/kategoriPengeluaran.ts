@@ -6,9 +6,14 @@ export interface KategoriPengeluaran {
 }
 
 export const KATEGORI_PENGELUARAN: KategoriPengeluaran[] = [
-  { label: 'Belanja Barang Dagangan', contoh: 'Rokok, mie, minuman, sembako, snack, sabun' },
-  { label: 'Bayar Tagihan', contoh: 'Pelunasan nota kredit dari supplier' },
+  { label: 'Belanja Rokok', contoh: 'Pembelian rokok untuk stok toko' },
+  { label: 'Belanja Barang Lainnya', contoh: 'Mie, minuman, sembako, snack, sabun' },
+  { label: 'Bayar Tagihan Rokok', contoh: 'Pelunasan nota kredit rokok dari supplier' },
+  { label: 'Bayar Tagihan Barang Lainnya', contoh: 'Pelunasan nota kredit barang selain rokok' },
   { label: 'Bayar Barang Titip', contoh: 'Pelunasan barang titip/konsinyasi ke supplier' },
+  { label: 'Pribadi', contoh: 'Pemakaian pribadi' },
+  { label: 'Simpanan', contoh: 'Uang yang dipisahkan sebagai simpanan' },
+  { label: 'Top Up Saldo', contoh: 'Top up saldo atau dompet digital' },
   { label: 'Operasional Toko', contoh: 'Plastik, nota, alat tulis, kantong belanja' },
   { label: 'Listrik & Air', contoh: 'Listrik toko, air, token' },
   { label: 'Internet & Komunikasi', contoh: 'WiFi, pulsa, paket data' },

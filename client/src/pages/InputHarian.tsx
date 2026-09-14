@@ -95,7 +95,7 @@ export default function InputHarian() {
   }
 
   useEffect(() => {
-    if (kategori === 'Bayar Tagihan' || kategori === 'Bayar Barang Titip') {
+    if (kategori === 'Bayar Tagihan Rokok' || kategori === 'Bayar Tagihan Barang Lainnya' || kategori === 'Bayar Barang Titip') {
       api
         .get('/bon', { params: { tipe: kategori === 'Bayar Barang Titip' ? 'TITIP' : 'CREDIT', status: 'BELUM_LUNAS' } })
         .then((res) => setTagihanList(res.data));
@@ -255,7 +255,7 @@ export default function InputHarian() {
               onChange={(e) => setKategoriCustom(e.target.value)}
             />
           )}
-          {(kategori === 'Bayar Tagihan' || kategori === 'Bayar Barang Titip') && (
+          {(kategori === 'Bayar Tagihan Rokok' || kategori === 'Bayar Tagihan Barang Lainnya' || kategori === 'Bayar Barang Titip') && (
             <div className="col-span-2 border rounded-md p-2 space-y-1 bg-gray-50">
               <p className="text-xs text-gray-500 font-medium">
                 Pilih {kategori === 'Bayar Barang Titip' ? 'bon barang titip yang mau diselesaikan' : 'tagihan yang mau dibayar'}:

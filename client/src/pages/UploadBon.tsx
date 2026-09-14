@@ -91,6 +91,13 @@ export default function UploadBon() {
     try {
       const kategoriFinal = kategori === 'Lain-lain' && kategoriCustom.trim() ? kategoriCustom.trim() : kategori;
       const jumlahNum = parseNominal(jumlah);
+      if (sumberRincian.sumberDana === 'CAMPUR') {
+        const totalRincian = sumberRincian.dariLaci + sumberRincian.dariCashflow + sumberRincian.dariBank;
+        if (totalRincian !== jumlahNum) {
+          setUploadError(`Rincian sumber dana harus sama dengan jumlah nota (${formatNominal(jumlahNum)}).`);
+          return;
+        }
+      }
       const rincian =
         sumberRincian.sumberDana === 'CAMPUR'
           ? sumberRincian
@@ -212,7 +219,7 @@ export default function UploadBon() {
               onChange={(e) => setSupplier(e.target.value)}
             />
           </div>
-          {tipe === 'CASH' && (
+          {tipe !== 'TITIP' && (
             <div>
               <label className="block text-sm mb-1 text-gray-700">Kategori Pengeluaran</label>
               <select

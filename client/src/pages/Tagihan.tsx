@@ -62,6 +62,8 @@ export default function Tagihan() {
     const params =
       mode === 'CASH'
         ? { tipe: 'CASH' }
+        : mode === 'LUNAS'
+          ? { tipe: 'CREDIT', status: 'LUNAS' }
         : { status: mode };
     const { data } = await api.get('/bon', { params });
     setItems(data);
@@ -79,7 +81,7 @@ export default function Tagihan() {
     filter === 'BELUM_LUNAS'
       ? 'Daftar Tagihan & Barang Titip Belum Lunas'
       : filter === 'LUNAS'
-        ? 'Tagihan & Barang Titip Sudah Dibayar / Lunas'
+        ? 'Tagihan Kredit Sudah Dibayar / Lunas'
         : 'Bon Tunai (bukan tagihan)';
 
   const nilaiHeader = filter === 'BELUM_LUNAS' ? totalSisa : totalJumlah;

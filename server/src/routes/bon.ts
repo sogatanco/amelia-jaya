@@ -73,6 +73,7 @@ bonRouter.post('/upload', upload.single('file'), async (req, res) => {
       tipe: parsed.data.tipe,
       jumlah: ocr.jumlah,
       supplier: ocr.supplier,
+      kategori: null,
       imagePath: path.relative(process.cwd(), req.file.path),
       ocrText: ocr.text,
       ocrConfidence: ocr.confidence,
@@ -128,7 +129,7 @@ bonRouter.patch('/:id/confirm', async (req, res) => {
     const updated = await prisma.$transaction(async (tx) => {
       const updatedBon = await tx.bon.update({
         where: { id: bon.id },
-        data: { tanggal: tanggalDate, jumlah, supplier, status: 'LUNAS' },
+        data: { tanggal: tanggalDate, jumlah, supplier, kategori, status: 'LUNAS' },
       });
       await tx.expense.create({
         data: {
@@ -154,6 +155,7 @@ bonRouter.patch('/:id/confirm', async (req, res) => {
       tanggal: tanggalDate,
       jumlah,
       supplier,
+      kategori,
       status: 'BELUM_LUNAS',
       jatuhTempo: bon.tipe === 'CREDIT' ? (jatuhTempo ? dayjs(jatuhTempo).toDate() : fallbackDueDate) : null,
     },
@@ -221,7 +223,34 @@ bonRouter.patch('/:id', requireRole('ADMIN'), async (req, res) => {
     }
   }
 
-  const updated = await prisma.bon.update({ where: { id: bon.id }, data });
+  const updated = await prisma.$transaction(async (tx) => {
+    const updatedBon = await tx.bon.update({ where: { id: bon.id }, data });
+
+    if (bon.tipe === 'CASH') {
+      const expense = await tx.expense.findFirst({ where: { bonId: bon.id } });
+      if (expense) {
+        const nominalBaru = jumlah ?? expense.jumlah;
+        const faktor = expense.jumlah > 0 ? nominalBaru / expense.jumlah : 1;
+        await tx.expense.update({
+          where: { id: expense.id },
+          data: {
+            tanggal: tanggal ? dayjs(tanggal).startOf('day').toDate() : expense.tanggal,
+            jumlah: nominalBaru,
+            keterangan: supplier !== undefined
+              ? supplier
+                ? `Nota dari ${supplier}`
+                : null
+              : expense.keterangan,
+            dariLaci: expense.dariLaci * faktor,
+            dariCashflow: expense.dariCashflow * faktor,
+            dariBank: expense.dariBank * faktor,
+          },
+        });
+      }
+    }
+
+    return updatedBon;
+  });
   res.json(updated);
 });
 
@@ -289,9 +318,16 @@ const SUMBER_LABEL: Record<string, string> = {
 };
 
 const KATEGORI_BAYAR: Record<string, string> = {
-  CREDIT: 'Bayar Tagihan',
+  CREDIT: 'Bayar Tagihan Barang Lainnya',
   TITIP: 'Bayar Barang Titip',
 };
+
+function kategoriPembayaranBon(tipe: string, kategori?: string | null) {
+  if (tipe === 'CREDIT' && (kategori === 'Belanja Rokok' || kategori === 'Bayar Tagihan Rokok')) {
+    return 'Bayar Tagihan Rokok';
+  }
+  return KATEGORI_BAYAR[tipe] ?? 'Bayar Tagihan';
+}
 
 // Bayar tagihan/barang titip: bisa penuh, sebagian, atau campuran antar sumber
 // dana (laci kasir / cashflow / bank). Setiap pembayaran otomatis tercatat
@@ -323,7 +359,7 @@ bonRouter.post('/:id/pay', async (req, res) => {
   const paidAmountBaru = (bon.paidAmount ?? 0) + bayar;
   const lunas = paidAmountBaru >= (bon.jumlah ?? 0);
   const supplierLabel = bon.supplier || 'supplier';
-  const kategoriBayar = KATEGORI_BAYAR[bon.tipe] ?? 'Bayar Tagihan';
+  const kategoriBayar = kategoriPembayaranBon(bon.tipe, bon.kategori);
   const labelJenis = bon.tipe === 'TITIP' ? 'barang titip' : 'tagihan';
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -514,7 +550,7 @@ bonRouter.post('/:id/ubah-sumber-bayar', async (req, res) => {
   }
 
   const supplierLabel = bon.supplier || 'supplier';
-  const kategoriBayar = KATEGORI_BAYAR[bon.tipe] ?? 'Bayar Tagihan';
+  const kategoriBayar = kategoriPembayaranBon(bon.tipe, bon.kategori);
   const labelJenis = bon.tipe === 'TITIP' ? 'barang titip' : 'tagihan';
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -564,7 +600,7 @@ bonRouter.post('/:id/batal-lunas', async (req, res) => {
     return res.status(400).json({ message: 'Memang belum dibayar' });
   }
 
-  const kategoriBayar = KATEGORI_BAYAR[bon.tipe] ?? 'Bayar Tagihan';
+  const kategoriBayar = kategoriPembayaranBon(bon.tipe, bon.kategori);
 
   const updated = await prisma.$transaction(async (tx) => {
     await tx.expense.deleteMany({

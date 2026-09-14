@@ -113,21 +113,20 @@ export default function Laporan() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-gray-500 border-b">
-                  <th className="py-1.5">Tanggal</th>
-                  <th className="py-1.5">Sumber</th>
-                  <th className="py-1.5 text-right">Omset</th>
-                  <th className="py-1.5 text-right">Pengeluaran</th>
-                  <th className="py-1.5 text-right">Laba/Rugi</th>
+                <tr className="text-left text-xs uppercase tracking-wide text-gray-500 border-b">
+                  <th className="py-2 pr-4">Tanggal</th>
+                  <th className="py-2 pr-4 text-right">Omset</th>
+                  <th className="py-2 pr-4 text-right">Pengeluaran</th>
+                  <th className="py-2 text-right">Laba/Rugi</th>
                 </tr>
               </thead>
               <tbody>
                 {summary.rows.map((r) => (
-                  <tr key={r.tanggal} className="border-b last:border-0">
-                    <td className="py-1.5">{r.tanggal}</td>
-                    <td className="py-1.5 text-right">{formatRupiah(r.omset)}</td>
-                    <td className="py-1.5 text-right">{formatRupiah(r.pengeluaran)}</td>
-                    <td className={`py-1.5 text-right ${r.labaRugi >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  <tr key={r.tanggal} className="border-b last:border-0 hover:bg-gray-50">
+                    <td className="py-2 pr-4 whitespace-nowrap">{formatTanggal(r.tanggal)}</td>
+                    <td className="py-2 pr-4 text-right whitespace-nowrap">{formatRupiah(r.omset)}</td>
+                    <td className="py-2 pr-4 text-right whitespace-nowrap">{formatRupiah(r.pengeluaran)}</td>
+                    <td className={`py-2 text-right whitespace-nowrap ${r.labaRugi >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {formatRupiah(r.labaRugi)}
                     </td>
                   </tr>
@@ -144,19 +143,20 @@ export default function Laporan() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-gray-500 border-b">
-                  <th className="py-1.5">Tanggal</th>
-                  <th className="py-1.5 text-right">Omset</th>
-                  <th className="py-1.5">Catatan</th>
+                <tr className="text-left text-xs uppercase tracking-wide text-gray-500 border-b">
+                  <th className="py-2 pr-4">Tanggal</th>
+                  <th className="py-2 pr-4">Sumber</th>
+                  <th className="py-2 pr-4 text-right">Omset</th>
+                  <th className="py-2">Catatan</th>
                 </tr>
               </thead>
               <tbody>
                 {closings.map((item) => (
-                  <tr key={item.id} className="border-b last:border-0">
-                    <td className="py-1.5">{formatTanggal(item.tanggal)}</td>
-                    <td className="py-1.5">{item.sumber === 'QRIS' ? 'QRIS' : 'Kasir / Tunai'}</td>
-                    <td className="py-1.5 text-right">{formatRupiah(item.omset)}</td>
-                    <td className="py-1.5 text-gray-500">{item.catatan || '-'}</td>
+                  <tr key={item.id} className="border-b last:border-0 hover:bg-gray-50">
+                    <td className="py-2 pr-4 whitespace-nowrap">{formatTanggal(item.tanggal)}</td>
+                    <td className="py-2 pr-4">{item.sumber === 'QRIS' ? 'QRIS' : 'Kasir / Tunai'}</td>
+                    <td className="py-2 pr-4 text-right whitespace-nowrap">{formatRupiah(item.omset)}</td>
+                    <td className="py-2 text-gray-500">{item.catatan || '-'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -172,22 +172,22 @@ export default function Laporan() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-gray-500 border-b">
-                  <th className="py-1.5">Tanggal</th>
-                  <th className="py-1.5">Kategori</th>
-                  <th className="py-1.5 text-right">Jumlah</th>
-                  <th className="py-1.5">Sumber</th>
-                  <th className="py-1.5">Keterangan</th>
+                <tr className="text-left text-xs uppercase tracking-wide text-gray-500 border-b">
+                  <th className="py-2 pr-4">Tanggal</th>
+                  <th className="py-2 pr-4">Kategori</th>
+                  <th className="py-2 pr-4 text-right">Jumlah</th>
+                  <th className="py-2 pr-4">Sumber</th>
+                  <th className="py-2">Keterangan</th>
                 </tr>
               </thead>
               <tbody>
                 {expenses.map((item) => (
-                  <tr key={item.id} className="border-b last:border-0">
-                    <td className="py-1.5">{formatTanggal(item.tanggal)}</td>
-                    <td className="py-1.5">{item.kategori}</td>
-                    <td className="py-1.5 text-right">{formatRupiah(item.jumlah)}</td>
-                    <td className="py-1.5">{item.sumberDana}</td>
-                    <td className="py-1.5 text-gray-500">{item.keterangan || '-'}</td>
+                  <tr key={item.id} className="border-b last:border-0 hover:bg-gray-50">
+                    <td className="py-2 pr-4 whitespace-nowrap">{formatTanggal(item.tanggal)}</td>
+                    <td className="py-2 pr-4">{item.kategori}</td>
+                    <td className="py-2 pr-4 text-right whitespace-nowrap">{formatRupiah(item.jumlah)}</td>
+                    <td className="py-2 pr-4">{item.sumberDana}</td>
+                    <td className="py-2 text-gray-500">{item.keterangan || '-'}</td>
                   </tr>
                 ))}
               </tbody>

@@ -164,5 +164,13 @@ reportsRouter.get('/chart', async (req, res) => {
     };
   });
 
-  res.json({ periode, from: from.format('YYYY-MM-DD'), to: to.format('YYYY-MM-DD'), data });
+  const byCategory = new Map<string, number>();
+  for (const expense of expenses) {
+    byCategory.set(expense.kategori, (byCategory.get(expense.kategori) ?? 0) + expense.jumlah);
+  }
+  const kategori = [...byCategory.entries()]
+    .map(([name, jumlah]) => ({ name, jumlah }))
+    .sort((a, b) => b.jumlah - a.jumlah);
+
+  res.json({ periode, from: from.format('YYYY-MM-DD'), to: to.format('YYYY-MM-DD'), data, kategori });
 });
