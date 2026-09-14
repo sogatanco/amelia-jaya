@@ -235,18 +235,18 @@ export default function InputHarian() {
         <h2 className="font-semibold text-gray-800">Pengeluaran Tanggal {formatTanggal(tanggal)}</h2>
 
         <div className="grid grid-cols-2 gap-2">
-          <select
-            className="border rounded-md px-3 py-2 col-span-2 bg-white"
+          <input
+            list="kategori-pengeluaran-harian"
+            className="border rounded-md px-3 py-2 col-span-2"
+            placeholder="Ketik atau pilih kategori pengeluaran..."
             value={kategori}
             onChange={(e) => setKategori(e.target.value)}
-          >
-            <option value="">Pilih kategori pengeluaran...</option>
+          />
+          <datalist id="kategori-pengeluaran-harian">
             {KATEGORI_PENGELUARAN.map((k) => (
-              <option key={k.label} value={k.label}>
-                {k.label} — {k.contoh}
-              </option>
+              <option key={k.label} value={k.label} label={k.contoh} />
             ))}
-          </select>
+          </datalist>
           {kategori === 'Lain-lain' && (
             <input
               placeholder="Tulis kategori lainnya"

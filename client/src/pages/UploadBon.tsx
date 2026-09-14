@@ -222,18 +222,18 @@ export default function UploadBon() {
           {tipe !== 'TITIP' && (
             <div>
               <label className="block text-sm mb-1 text-gray-700">Kategori Pengeluaran</label>
-              <select
-                className="w-full border rounded-md px-3 py-2 bg-white"
+              <input
+                list="kategori-pengeluaran-bon"
+                className="w-full border rounded-md px-3 py-2"
+                placeholder="Ketik atau pilih kategori pengeluaran..."
                 value={kategori}
                 onChange={(e) => setKategori(e.target.value)}
-              >
-                <option value="">Pilih kategori pengeluaran...</option>
+              />
+              <datalist id="kategori-pengeluaran-bon">
                 {KATEGORI_PENGELUARAN.map((k) => (
-                  <option key={k.label} value={k.label}>
-                    {k.label} — {k.contoh}
-                  </option>
+                  <option key={k.label} value={k.label} label={k.contoh} />
                 ))}
-              </select>
+              </datalist>
               {kategori === 'Lain-lain' && (
                 <input
                   placeholder="Tulis kategori lainnya"
