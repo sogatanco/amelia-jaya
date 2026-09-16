@@ -33,10 +33,22 @@ interface ExpenseItem {
   jumlah: number;
   keterangan?: string | null;
   sumberDana: string;
+  dariLaci: number;
+  dariCashflow: number;
+  dariBank: number;
 }
 
 function formatRupiah(n: number) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+}
+
+function formatSumberDana(item: ExpenseItem) {
+  const rincian = ([
+    ['Laci', item.dariLaci],
+    ['Cashflow', item.dariCashflow],
+    ['Bank', item.dariBank],
+  ] as Array<[string, number]>).filter(([, nominal]) => nominal > 0);
+  return rincian.length > 0 ? rincian.map(([label, nominal]) => `${label}: ${formatRupiah(nominal)}`).join(' · ') : item.sumberDana;
 }
 
 export default function Laporan() {
@@ -186,7 +198,7 @@ export default function Laporan() {
                     <td className="py-2 pr-4 whitespace-nowrap">{formatTanggal(item.tanggal)}</td>
                     <td className="py-2 pr-4">{item.kategori}</td>
                     <td className="py-2 pr-4 text-right whitespace-nowrap">{formatRupiah(item.jumlah)}</td>
-                    <td className="py-2 pr-4">{item.sumberDana}</td>
+                    <td className="py-2 pr-4 whitespace-nowrap">{formatSumberDana(item)}</td>
                     <td className="py-2 text-gray-500">{item.keterangan || '-'}</td>
                   </tr>
                 ))}

@@ -25,10 +25,23 @@ interface Expense {
   jumlah: number;
   keterangan?: string | null;
   sumber: 'MANUAL' | 'BON';
+  sumberDana: string;
+  dariLaci: number;
+  dariCashflow: number;
+  dariBank: number;
 }
 
 function formatRupiah(n: number) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+}
+
+function formatSumberDana(expense: Expense) {
+  const rincian = ([
+    ['Laci', expense.dariLaci],
+    ['Cashflow', expense.dariCashflow],
+    ['Bank', expense.dariBank],
+  ] as Array<[string, number]>).filter(([, nominal]) => nominal > 0);
+  return rincian.length > 0 ? rincian.map(([label, nominal]) => `${label}: ${formatRupiah(nominal)}`).join(' · ') : expense.sumberDana;
 }
 
 export default function InputHarian() {
@@ -313,6 +326,7 @@ export default function InputHarian() {
             <li key={e.id} className="py-2 flex justify-between items-center text-sm">
               <div>
                 <p className="font-medium">{e.kategori} {e.sumber === 'BON' && <span className="text-xs text-blue-600">(dari bon)</span>}</p>
+                <p className="text-gray-500 text-xs">Sumber: {formatSumberDana(e)}</p>
                 {e.keterangan && <p className="text-gray-500 text-xs">{e.keterangan}</p>}
               </div>
               <div className="flex items-center gap-2">
