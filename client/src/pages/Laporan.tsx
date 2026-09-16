@@ -40,7 +40,7 @@ function formatRupiah(n: number) {
 }
 
 export default function Laporan() {
-  const [from, setFrom] = useState(dayjs().startOf('month').format('YYYY-MM-DD'));
+  const [from, setFrom] = useState(dayjs().format('YYYY-MM-DD'));
   const [to, setTo] = useState(dayjs().format('YYYY-MM-DD'));
   const [summary, setSummary] = useState<Summary | null>(null);
   const [totalTagihan, setTotalTagihan] = useState(0);
