@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import dayjs from 'dayjs';
 import { api } from '../api/client';
 import { formatNominal, parseNominal } from '../utils/date';
 
@@ -44,6 +45,7 @@ export default function BayarTagihanDialog({ item, onClose, onPaid }: Props) {
   const [laciAmount, setLaciAmount] = useState('');
   const [cashflowAmount, setCashflowAmount] = useState('');
   const [bankAmount, setBankAmount] = useState('');
+  const [tanggalBayar, setTanggalBayar] = useState(dayjs().format('YYYY-MM-DD'));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -83,6 +85,7 @@ export default function BayarTagihanDialog({ item, onClose, onPaid }: Props) {
         await api.post(`/bon/${item.id}/selesaikan-titip`, {
           jumlahAkhir: totalBayar,
           metode,
+          tanggal: tanggalBayar,
           ...(metode === 'CAMPUR'
             ? {
                 dariLaci: parseNominal(laciAmount),
@@ -94,6 +97,7 @@ export default function BayarTagihanDialog({ item, onClose, onPaid }: Props) {
       } else {
         await api.post(`/bon/${item.id}/pay`, {
           metode,
+          tanggal: tanggalBayar,
           ...(metode === 'CAMPUR'
             ? {
                 dariLaci: parseNominal(laciAmount),
@@ -125,6 +129,16 @@ export default function BayarTagihanDialog({ item, onClose, onPaid }: Props) {
             {item.supplier || 'Tanpa nama supplier'} · {isTitip ? 'Nilai belum dibayar' : 'Sisa tagihan'}:{' '}
             <span className="font-semibold text-red-600">{formatRupiah(sisa)}</span>
           </p>
+        </div>
+
+        <div>
+          <label className="block text-sm mb-1 text-gray-700">Tanggal Pembayaran</label>
+          <input
+            type="date"
+            className="w-full border rounded-md px-3 py-2"
+            value={tanggalBayar}
+            onChange={(e) => setTanggalBayar(e.target.value)}
+          />
         </div>
 
         <div>
