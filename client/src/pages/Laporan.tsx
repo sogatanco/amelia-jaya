@@ -6,10 +6,10 @@ import { formatTanggal } from '../utils/date';
 
 interface Row {
   tanggal: string;
-  tunai: number;
-  qris: number;
-  pengeluaranLaci: number;
-  total: number;
+  tunai?: number;
+  qris?: number;
+  pengeluaranLaci?: number;
+  total?: number;
   omset: number;
   pengeluaran: number;
   labaRugi: number;
@@ -28,6 +28,13 @@ interface CategoryTotal {
   jumlah: number;
 }
 
+interface ClosingItem {
+  id: string;
+  tanggal: string;
+  omset: number;
+  sumber: 'KASIR' | 'QRIS';
+}
+
 interface ExpenseItem {
   id: string;
   tanggal: string;
@@ -41,7 +48,8 @@ interface ExpenseItem {
 }
 
 function formatRupiah(n: number) {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+  const value = Number.isFinite(n) ? n : 0;
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value);
 }
 
 function formatSumberDana(item: ExpenseItem) {
@@ -58,6 +66,7 @@ export default function Laporan() {
   const [to, setTo] = useState(dayjs().format('YYYY-MM-DD'));
   const [summary, setSummary] = useState<Summary | null>(null);
   const [totalTagihan, setTotalTagihan] = useState(0);
+  const [closings, setClosings] = useState<ClosingItem[]>([]);
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
 
   const categoryTotals = summary?.categoryTotals?.length
@@ -72,13 +81,15 @@ export default function Laporan() {
         .sort((a, b) => b.jumlah - a.jumlah);
 
   async function load() {
-    const [summaryRes, tagihanRes, expensesRes] = await Promise.all([
+    const [summaryRes, tagihanRes, closingsRes, expensesRes] = await Promise.all([
       api.get('/reports/summary', { params: { from, to } }),
       api.get('/reports/tagihan'),
+      api.get('/closings', { params: { from, to } }),
       api.get('/expenses', { params: { from, to } }),
     ]);
     setSummary(summaryRes.data);
     setTotalTagihan(tagihanRes.data.totalTagihan);
+    setClosings(closingsRes.data);
     setExpenses(expensesRes.data);
   }
 
@@ -86,6 +97,18 @@ export default function Laporan() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const closingTotalsByDate = closings.reduce<Record<string, { tunai: number; qris: number }>>((totals, item) => {
+    const current = totals[item.tanggal] ?? { tunai: 0, qris: 0 };
+    if (item.sumber === 'QRIS') current.qris += Number(item.omset) || 0;
+    else current.tunai += Number(item.omset) || 0;
+    totals[item.tanggal] = current;
+    return totals;
+  }, {});
+  const laciByDate = expenses.reduce<Record<string, number>>((totals, item) => {
+    totals[item.tanggal] = (totals[item.tanggal] ?? 0) + (Number(item.dariLaci) || 0);
+    return totals;
+  }, {});
 
   return (
     <div className="space-y-4">
@@ -174,15 +197,24 @@ export default function Laporan() {
                 </tr>
               </thead>
               <tbody>
-                {summary.rows.map((item) => (
-                  <tr key={item.tanggal} className="border-b last:border-0 hover:bg-gray-50">
-                    <td className="py-2 pr-4 whitespace-nowrap">{formatTanggal(item.tanggal)}</td>
-                    <td className="py-2 pr-4 text-right whitespace-nowrap">{formatRupiah(item.tunai)}</td>
-                    <td className="py-2 pr-4 text-right whitespace-nowrap">{formatRupiah(item.qris)}</td>
-                    <td className="py-2 pr-4 text-right whitespace-nowrap">{formatRupiah(item.pengeluaranLaci)}</td>
-                    <td className="py-2 text-right whitespace-nowrap font-medium">{formatRupiah(item.total)}</td>
-                  </tr>
-                ))}
+                {summary.rows.map((item) => {
+                  const closingTotals = closingTotalsByDate[item.tanggal] ?? { tunai: 0, qris: 0 };
+                  const tunai = Number.isFinite(item.tunai) ? item.tunai! : closingTotals.tunai;
+                  const qris = Number.isFinite(item.qris) ? item.qris! : closingTotals.qris;
+                  const pengeluaranLaci = Number.isFinite(item.pengeluaranLaci)
+                    ? item.pengeluaranLaci!
+                    : laciByDate[item.tanggal] ?? 0;
+                  const total = Number.isFinite(item.total) ? item.total! : tunai + qris + pengeluaranLaci;
+                  return (
+                    <tr key={item.tanggal} className="border-b last:border-0 hover:bg-gray-50">
+                      <td className="py-2 pr-4 whitespace-nowrap">{formatTanggal(item.tanggal)}</td>
+                      <td className="py-2 pr-4 text-right whitespace-nowrap">{formatRupiah(tunai)}</td>
+                      <td className="py-2 pr-4 text-right whitespace-nowrap">{formatRupiah(qris)}</td>
+                      <td className="py-2 pr-4 text-right whitespace-nowrap">{formatRupiah(pengeluaranLaci)}</td>
+                      <td className="py-2 text-right whitespace-nowrap font-medium">{formatRupiah(total)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
