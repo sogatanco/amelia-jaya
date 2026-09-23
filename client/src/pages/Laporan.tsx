@@ -61,6 +61,11 @@ function formatSumberDana(item: ExpenseItem) {
   return rincian.length > 0 ? rincian.map(([label, nominal]) => `${label}: ${formatRupiah(nominal)}`).join(' · ') : item.sumberDana;
 }
 
+function normalizeCategoryLabel(value: string) {
+  const label = value.trim().replace(/\s+/g, ' ');
+  return label.toLocaleLowerCase('id-ID') === 'tup up saldo' ? 'Top Up Saldo' : label;
+}
+
 export default function Laporan() {
   const [from, setFrom] = useState(dayjs().format('YYYY-MM-DD'));
   const [to, setTo] = useState(dayjs().format('YYYY-MM-DD'));
@@ -73,7 +78,8 @@ export default function Laporan() {
     ? summary.categoryTotals
     : Object.entries(
         expenses.reduce<Record<string, number>>((totals, item) => {
-          totals[item.kategori] = (totals[item.kategori] ?? 0) + item.jumlah;
+          const kategori = normalizeCategoryLabel(item.kategori);
+          totals[kategori] = (totals[kategori] ?? 0) + item.jumlah;
           return totals;
         }, {}),
       )

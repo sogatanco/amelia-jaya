@@ -2,6 +2,7 @@ import { Router } from 'express';
 import dayjs from 'dayjs';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
+import { categoryKey, normalizeCategoryLabel } from '../utils/category';
 
 export const reportsRouter = Router();
 reportsRouter.use(requireAuth, requireRole('ADMIN'));
@@ -58,8 +59,8 @@ reportsRouter.get('/summary', async (req, res) => {
   const totalPengeluaran = rows.reduce((s, r) => s + r.pengeluaran, 0);
   const totalLabaRugi = rows.reduce((s, r) => s + r.labaRugi, 0);
   const categoryTotals = [...expenses.reduce((totals, expense) => {
-    const label = expense.kategori.trim();
-    const key = label.toLocaleLowerCase('id-ID');
+    const label = normalizeCategoryLabel(expense.kategori);
+    const key = categoryKey(expense.kategori);
     const current = totals.get(key) ?? { name: label, jumlah: 0 };
     current.jumlah += expense.jumlah;
     totals.set(key, current);
@@ -177,11 +178,11 @@ reportsRouter.get('/chart', async (req, res) => {
 
   const byCategory = new Map<string, number>();
   for (const expense of expenses) {
-    const key = expense.kategori.trim().toLocaleLowerCase('id-ID');
+    const key = categoryKey(expense.kategori);
     byCategory.set(key, (byCategory.get(key) ?? 0) + expense.jumlah);
   }
   const kategori = [...byCategory.entries()]
-    .map(([key, jumlah]) => ({ name: expenses.find((expense) => expense.kategori.trim().toLocaleLowerCase('id-ID') === key)?.kategori.trim() ?? key, jumlah }))
+    .map(([key, jumlah]) => ({ name: normalizeCategoryLabel(expenses.find((expense) => categoryKey(expense.kategori) === key)?.kategori ?? key), jumlah }))
     .sort((a, b) => b.jumlah - a.jumlah);
 
   res.json({ periode, from: from.format('YYYY-MM-DD'), to: to.format('YYYY-MM-DD'), data, kategori });

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import dayjs from 'dayjs';
 import { prisma } from '../lib/prisma';
 import { requireAuth } from '../middleware/auth';
+import { categoryKey, normalizeCategoryLabel } from '../utils/category';
 
 export const expensesRouter = Router();
 expensesRouter.use(requireAuth);
@@ -14,8 +15,8 @@ expensesRouter.get('/categories', async (_req, res) => {
   });
   const categories = new Map<string, string>();
   for (const expense of expenses) {
-    const label = expense.kategori.trim();
-    const key = label.toLocaleLowerCase('id-ID');
+    const label = normalizeCategoryLabel(expense.kategori);
+    const key = categoryKey(expense.kategori);
     if (label && !categories.has(key)) categories.set(key, label);
   }
   res.json([...categories.values()]);
@@ -59,7 +60,8 @@ expensesRouter.post('/', async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ message: 'Data tidak valid', errors: parsed.error.flatten() });
   }
-  const { tanggal, kategori, jumlah, keterangan, sumberDana, dariLaci, dariCashflow, dariBank } = parsed.data;
+  const { tanggal, jumlah, keterangan, sumberDana, dariLaci, dariCashflow, dariBank } = parsed.data;
+  const kategoriNormalized = normalizeCategoryLabel(parsed.data.kategori);
 
   const rincian =
     sumberDana === 'CAMPUR'
@@ -73,7 +75,7 @@ expensesRouter.post('/', async (req, res) => {
   const expense = await prisma.expense.create({
     data: {
       tanggal: dayjs(tanggal).startOf('day').toDate(),
-      kategori,
+      kategori: kategoriNormalized,
       jumlah,
       keterangan,
       sumberDana,
