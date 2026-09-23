@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -80,16 +80,35 @@ interface NotificationItem {
   createdAt: string;
 }
 
+function decodeVapidKey(value: string) {
+  const padding = '='.repeat((4 - (value.length % 4)) % 4);
+  const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = window.atob(base64);
+  return Uint8Array.from([...raw].map((character) => character.charCodeAt(0)));
+}
+
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const links = user?.role === 'ADMIN' ? adminLinks : cashierLinks;
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
+    typeof Notification === 'undefined' ? 'denied' : Notification.permission,
+  );
+  const [pushRegistered, setPushRegistered] = useState(false);
+  const [notificationError, setNotificationError] = useState('');
+  const notificationInitialized = useRef(false);
 
   async function loadNotifications() {
     try {
       const { data } = await api.get<NotificationItem[]>('/notifications');
+      const previous = localStorage.getItem('last-notification-id');
+      if (notificationInitialized.current && data.length > 0 && data[0].id !== previous && notificationPermission === 'granted' && typeof Notification !== 'undefined') {
+        const newest = previous ? data.find((item) => item.id === data[0].id) : null;
+        if (newest) new Notification(newest.judul, { body: newest.pesan, icon: '/icons/icon-192.png', tag: newest.id });
+      }
+      if (data[0]) localStorage.setItem('last-notification-id', data[0].id);
       setNotifications(data);
     } catch {
       setNotifications([]);
@@ -98,9 +117,39 @@ export default function Layout() {
 
   useEffect(() => {
     loadNotifications();
+    notificationInitialized.current = true;
     const timer = window.setInterval(loadNotifications, 30000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [notificationPermission]);
+
+  async function enableDeviceNotifications() {
+    setNotificationError('');
+    if (typeof Notification === 'undefined') {
+      setNotificationError('Browser ini tidak mendukung notifikasi perangkat.');
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+    if (permission !== 'granted') setNotificationError('Izin notifikasi belum diberikan.');
+    if (permission !== 'granted') return;
+
+    try {
+      const { data } = await api.get<{ publicKey: string | null }>('/notifications/vapid-public-key');
+      if (!data.publicKey || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+        setNotificationError('Web Push belum dikonfigurasi di server.');
+        return;
+      }
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: decodeVapidKey(data.publicKey),
+      });
+      await api.post('/notifications/subscribe', subscription.toJSON());
+      setPushRegistered(true);
+    } catch {
+      setNotificationError('Gagal mendaftarkan perangkat untuk notifikasi push.');
+    }
+  }
 
   async function openNotification(id: string) {
     await api.patch(`/notifications/${id}/read`);
@@ -133,6 +182,12 @@ export default function Layout() {
                 <p className="font-semibold text-sm">Notifikasi</p>
                 <button type="button" className="text-xs text-brand" onClick={() => navigate('/notifikasi')}>Lihat semua</button>
               </div>
+              {notificationPermission !== 'granted' || !pushRegistered ? (
+                <button type="button" onClick={enableDeviceNotifications} className="w-full text-left text-xs text-brand bg-green-50 rounded-md px-2 py-2 mb-1">
+                  {notificationPermission === 'granted' ? 'Daftarkan Notifikasi Push' : 'Aktifkan Notifikasi Perangkat'}
+                </button>
+              ) : null}
+              {notificationError && <p className="text-xs text-red-600 px-2 pb-1">{notificationError}</p>}
               <div className="max-h-64 overflow-y-auto">
                 {notifications.slice(0, 5).map((item) => (
                   <button key={item.id} type="button" onClick={() => openNotification(item.id)} className={`w-full text-left p-2 rounded-md ${item.dibacaAt ? '' : 'bg-amber-50'}`}>
