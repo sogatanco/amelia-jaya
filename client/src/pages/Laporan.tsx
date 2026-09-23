@@ -106,7 +106,9 @@ export default function Laporan() {
     return totals;
   }, {});
   const laciByDate = expenses.reduce<Record<string, number>>((totals, item) => {
-    totals[item.tanggal] = (totals[item.tanggal] ?? 0) + (Number(item.dariLaci) || 0);
+    const tanggal = dayjs(item.tanggal).format('YYYY-MM-DD');
+    const dariLaci = Number(item.dariLaci) || (item.sumberDana === 'LACI' ? Number(item.jumlah) || 0 : 0);
+    totals[tanggal] = (totals[tanggal] ?? 0) + dariLaci;
     return totals;
   }, {});
 

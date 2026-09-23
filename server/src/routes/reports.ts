@@ -36,7 +36,7 @@ reportsRouter.get('/summary', async (req, res) => {
     // Pengeluaran dari laci = uang omset yang diputar untuk belanja. Ia tetap
     // dicatat sebagai pengeluaran, tapi juga masuk kembali ke omset/pemasukan
     // tanggal itu (karena sumbernya adalah kas hasil penjualan).
-    const dariLaci = e.dariLaci ?? 0;
+    const dariLaci = e.dariLaci || (e.sumberDana === 'LACI' ? e.jumlah : 0);
     const dariLain = e.jumlah - dariLaci;
     entry.pengeluaranLaci += dariLaci;
     entry.pengeluaranLain += dariLain;
@@ -129,7 +129,7 @@ reportsRouter.get('/chart', async (req, res) => {
   for (const e of expenses) {
     const key = bucketKey(e.tanggal);
     const entry = byBucket.get(key) ?? { omsetPenjualan: 0, pengeluaranLaci: 0, pengeluaranLain: 0 };
-    const dariLaci = e.dariLaci ?? 0;
+    const dariLaci = e.dariLaci || (e.sumberDana === 'LACI' ? e.jumlah : 0);
     entry.pengeluaranLaci += dariLaci;
     entry.pengeluaranLain += e.jumlah - dariLaci;
     byBucket.set(key, entry);
