@@ -115,18 +115,28 @@ export default function LaporanChart({ from, to }: Props) {
       {!loading && kategori.length > 0 && (
         <div className="border-t pt-4">
           <h4 className="font-semibold text-gray-800 mb-2">Pengeluaran Berdasarkan Kategori</h4>
-          <div className="w-full h-72">
+          <div className="w-full h-64 sm:h-72">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={kategori} dataKey="jumlah" nameKey="name" cx="50%" cy="50%" outerRadius={88} labelLine={false}>
+                <Pie data={kategori} dataKey="jumlah" nameKey="name" cx="50%" cy="45%" outerRadius="34%" labelLine={false}>
                   {kategori.map((item, index) => (
                     <Cell key={item.name} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip formatter={(value) => formatRupiah(Number(value ?? 0))} />
-                <Legend />
               </PieChart>
             </ResponsiveContainer>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-xs text-gray-600">
+            {kategori.map((item, index) => (
+              <div key={item.name} className="flex min-w-0 items-start gap-2">
+                <span
+                  className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: CATEGORY_COLORS[index % CATEGORY_COLORS.length] }}
+                />
+                <span className="min-w-0 break-words">{item.name}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
