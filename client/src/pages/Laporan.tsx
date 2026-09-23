@@ -15,7 +15,7 @@ interface Summary {
   totalOmset: number;
   totalPengeluaran: number;
   labaRugi: number;
-  categoryTotals: CategoryTotal[];
+  categoryTotals?: CategoryTotal[];
   rows: Row[];
 }
 
@@ -64,6 +64,17 @@ export default function Laporan() {
   const [totalTagihan, setTotalTagihan] = useState(0);
   const [closings, setClosings] = useState<ClosingItem[]>([]);
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
+
+  const categoryTotals = summary?.categoryTotals?.length
+    ? summary.categoryTotals
+    : Object.entries(
+        expenses.reduce<Record<string, number>>((totals, item) => {
+          totals[item.kategori] = (totals[item.kategori] ?? 0) + item.jumlah;
+          return totals;
+        }, {}),
+      )
+        .map(([name, jumlah]) => ({ name, jumlah }))
+        .sort((a, b) => b.jumlah - a.jumlah);
 
   async function load() {
     const [summaryRes, tagihanRes, closingsRes, expensesRes] = await Promise.all([
@@ -123,7 +134,7 @@ export default function Laporan() {
         </section>
       )}
 
-      {summary && <LaporanChart from={from} to={to} kategori={summary.categoryTotals ?? []} />}
+      {summary && <LaporanChart from={from} to={to} kategori={categoryTotals} />}
 
       {summary && (
         <section className="bg-white rounded-xl shadow p-4">
@@ -186,7 +197,7 @@ export default function Laporan() {
 
       {summary && (
         <section className="bg-white rounded-xl shadow p-4">
-          <h3 className="font-semibold text-gray-800 mb-2">Daftar Pengeluaran</h3>
+          <h3 className="font-semibold text-gray-800 mb-2">Total Pengeluaran Berdasarkan Kategori</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -196,6 +207,31 @@ export default function Laporan() {
                   <th className="py-2 pr-4 text-right">Jumlah</th>
                   <th className="py-2 pr-4">Sumber</th>
                   <th className="py-2">Keterangan</th>
+                </tr>
+              </thead>
+              <tbody>
+                {categoryTotals.map((item) => (
+                  <tr key={item.name} className="border-b last:border-0 hover:bg-gray-50">
+                    <td className="py-2 pr-4">{item.name}</td>
+                    <td className="py-2 text-right whitespace-nowrap">{formatRupiah(item.jumlah)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {categoryTotals.length === 0 && <p className="text-sm text-gray-400 py-2">Belum ada pengeluaran pada periode ini.</p>}
+        </section>
+      )}
+
+      {summary && (
+        <section className="bg-white rounded-xl shadow p-4">
+          <h3 className="font-semibold text-gray-800 mb-2">Daftar Pengeluaran</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase tracking-wide text-gray-500 border-b">
+                  <th className="py-2 pr-4">Kategori</th>
+                  <th className="py-2 text-right">Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -212,31 +248,6 @@ export default function Laporan() {
             </table>
           </div>
           {expenses.length === 0 && <p className="text-sm text-gray-400 py-2">Belum ada pengeluaran pada periode ini.</p>}
-        </section>
-      )}
-
-      {summary && (
-        <section className="bg-white rounded-xl shadow p-4">
-          <h3 className="font-semibold text-gray-800 mb-2">Total Pengeluaran Berdasarkan Kategori</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-gray-500 border-b">
-                  <th className="py-2 pr-4">Kategori</th>
-                  <th className="py-2 text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(summary.categoryTotals ?? []).map((item) => (
-                  <tr key={item.name} className="border-b last:border-0 hover:bg-gray-50">
-                    <td className="py-2 pr-4">{item.name}</td>
-                    <td className="py-2 text-right whitespace-nowrap">{formatRupiah(item.jumlah)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {(summary.categoryTotals ?? []).length === 0 && <p className="text-sm text-gray-400 py-2">Belum ada pengeluaran pada periode ini.</p>}
         </section>
       )}
     </div>
