@@ -6,6 +6,7 @@ import { z } from 'zod';
 import dayjs from 'dayjs';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
+import { normalizeCategoryLabel } from '../utils/category';
 import { readBonImage } from '../utils/ocr';
 
 export const bonRouter = Router();
@@ -134,7 +135,7 @@ bonRouter.patch('/:id/confirm', async (req, res) => {
       await tx.expense.create({
         data: {
           tanggal: tanggalDate,
-          kategori: kategori || 'Belanja/Bon Tunai',
+          kategori: normalizeCategoryLabel(kategori || 'Belanja/Bon Tunai'),
           jumlah,
           keterangan: supplier ? `Nota dari ${supplier}` : undefined,
           sumber: 'BON',

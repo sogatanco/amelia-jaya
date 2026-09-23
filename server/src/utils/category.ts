@@ -1,5 +1,9 @@
 const CATEGORY_ALIASES: Record<string, string> = {
+  'top up': 'Top Up Saldo',
+  'top up saldo': 'Top Up Saldo',
   'tup up saldo': 'Top Up Saldo',
+  bensin: 'Belanja Bensin',
+  'belanja bensin': 'Belanja Bensin',
 };
 
 export function normalizeCategoryLabel(value: string) {

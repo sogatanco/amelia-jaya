@@ -63,7 +63,14 @@ function formatSumberDana(item: ExpenseItem) {
 
 function normalizeCategoryLabel(value: string) {
   const label = value.trim().replace(/\s+/g, ' ');
-  return label.toLocaleLowerCase('id-ID') === 'tup up saldo' ? 'Top Up Saldo' : label;
+  const aliases: Record<string, string> = {
+    'top up': 'Top Up Saldo',
+    'top up saldo': 'Top Up Saldo',
+    'tup up saldo': 'Top Up Saldo',
+    bensin: 'Belanja Bensin',
+    'belanja bensin': 'Belanja Bensin',
+  };
+  return aliases[label.toLocaleLowerCase('id-ID')] ?? label;
 }
 
 export default function Laporan() {
