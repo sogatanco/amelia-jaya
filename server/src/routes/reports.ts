@@ -78,10 +78,10 @@ reportsRouter.get('/summary', async (req, res) => {
 // Ringkasan tagihan (utang) ke supplier dari nota kredit yang belum lunas.
 reportsRouter.get('/tagihan', async (_req, res) => {
   const belumLunas = await prisma.bon.findMany({
-    where: { tipe: 'CREDIT', status: 'BELUM_LUNAS' },
+    where: { tipe: { in: ['CREDIT', 'TITIP'] }, status: 'BELUM_LUNAS' },
     orderBy: { jatuhTempo: 'asc' },
   });
-  const totalTagihan = belumLunas.reduce((s, b) => s + (b.jumlah ?? 0), 0);
+  const totalTagihan = belumLunas.reduce((s, b) => s + Math.max((b.jumlah ?? 0) - (b.paidAmount ?? 0), 0), 0);
   res.json({ totalTagihan, count: belumLunas.length, items: belumLunas });
 });
 
