@@ -55,6 +55,7 @@ export default function InputHarian() {
   const [message, setMessage] = useState('');
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [kategoriTersimpan, setKategoriTersimpan] = useState<string[]>([]);
   const [kategori, setKategori] = useState('');
   const [kategoriCustom, setKategoriCustom] = useState('');
   const [jumlahPengeluaran, setJumlahPengeluaran] = useState('');
@@ -74,6 +75,10 @@ export default function InputHarian() {
       if (!tanggal && res.data.length) setTanggal(res.data[0].tanggal);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    api.get<string[]>('/expenses/categories').then((res) => setKategoriTersimpan(res.data));
   }, []);
 
   useEffect(() => {
@@ -161,6 +166,10 @@ export default function InputHarian() {
   }
 
   const totalPengeluaran = expenses.reduce((s, e) => s + e.jumlah, 0);
+  const daftarKategori = [
+    ...KATEGORI_PENGELUARAN.map((item) => item.label),
+    ...kategoriTersimpan,
+  ].filter((label, index, daftar) => daftar.findIndex((item) => item.toLocaleLowerCase('id-ID') === label.toLocaleLowerCase('id-ID')) === index);
 
   return (
     <div className="space-y-6">
@@ -256,8 +265,8 @@ export default function InputHarian() {
             onChange={(e) => setKategori(e.target.value)}
           />
           <datalist id="kategori-pengeluaran-harian">
-            {KATEGORI_PENGELUARAN.map((k) => (
-              <option key={k.label} value={k.label} label={k.contoh} />
+            {daftarKategori.map((label) => (
+              <option key={label} value={label} />
             ))}
           </datalist>
           {kategori === 'Lain-lain' && (

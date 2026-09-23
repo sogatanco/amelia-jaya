@@ -58,10 +58,13 @@ reportsRouter.get('/summary', async (req, res) => {
   const totalPengeluaran = rows.reduce((s, r) => s + r.pengeluaran, 0);
   const totalLabaRugi = rows.reduce((s, r) => s + r.labaRugi, 0);
   const categoryTotals = [...expenses.reduce((totals, expense) => {
-    totals.set(expense.kategori, (totals.get(expense.kategori) ?? 0) + expense.jumlah);
+    const label = expense.kategori.trim();
+    const key = label.toLocaleLowerCase('id-ID');
+    const current = totals.get(key) ?? { name: label, jumlah: 0 };
+    current.jumlah += expense.jumlah;
+    totals.set(key, current);
     return totals;
-  }, new Map<string, number>())]
-    .map(([name, jumlah]) => ({ name, jumlah }))
+  }, new Map<string, { name: string; jumlah: number }>()).values()]
     .sort((a, b) => b.jumlah - a.jumlah);
 
   res.json({
@@ -174,10 +177,11 @@ reportsRouter.get('/chart', async (req, res) => {
 
   const byCategory = new Map<string, number>();
   for (const expense of expenses) {
-    byCategory.set(expense.kategori, (byCategory.get(expense.kategori) ?? 0) + expense.jumlah);
+    const key = expense.kategori.trim().toLocaleLowerCase('id-ID');
+    byCategory.set(key, (byCategory.get(key) ?? 0) + expense.jumlah);
   }
   const kategori = [...byCategory.entries()]
-    .map(([name, jumlah]) => ({ name, jumlah }))
+    .map(([key, jumlah]) => ({ name: expenses.find((expense) => expense.kategori.trim().toLocaleLowerCase('id-ID') === key)?.kategori.trim() ?? key, jumlah }))
     .sort((a, b) => b.jumlah - a.jumlah);
 
   res.json({ periode, from: from.format('YYYY-MM-DD'), to: to.format('YYYY-MM-DD'), data, kategori });

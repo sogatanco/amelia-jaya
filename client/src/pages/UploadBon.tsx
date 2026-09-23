@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { KATEGORI_PENGELUARAN } from '../constants/kategoriPengeluaran';
 import SumberDanaPicker, { type RincianSumber } from '../components/SumberDanaPicker';
@@ -27,6 +27,7 @@ export default function UploadBon() {
   const [jumlah, setJumlah] = useState('');
   const [supplier, setSupplier] = useState('');
   const [kategori, setKategori] = useState('');
+  const [kategoriTersimpan, setKategoriTersimpan] = useState<string[]>([]);
   const [kategoriCustom, setKategoriCustom] = useState('');
   const [jatuhTempo, setJatuhTempo] = useState('');
   const [confirming, setConfirming] = useState(false);
@@ -37,6 +38,15 @@ export default function UploadBon() {
     dariCashflow: 0,
     dariBank: 0,
   });
+
+  useEffect(() => {
+    api.get<string[]>('/expenses/categories').then((res) => setKategoriTersimpan(res.data));
+  }, []);
+
+  const daftarKategori = [
+    ...KATEGORI_PENGELUARAN.map((item) => item.label),
+    ...kategoriTersimpan,
+  ].filter((label, index, daftar) => daftar.findIndex((item) => item.toLocaleLowerCase('id-ID') === label.toLocaleLowerCase('id-ID')) === index);
 
   function pilihTipeBon(value: 'CASH' | 'CREDIT' | 'TITIP') {
     setTipe(value);
@@ -230,8 +240,8 @@ export default function UploadBon() {
                 onChange={(e) => setKategori(e.target.value)}
               />
               <datalist id="kategori-pengeluaran-bon">
-                {KATEGORI_PENGELUARAN.map((k) => (
-                  <option key={k.label} value={k.label} label={k.contoh} />
+                {daftarKategori.map((label) => (
+                  <option key={label} value={label} />
                 ))}
               </datalist>
               {kategori === 'Lain-lain' && (

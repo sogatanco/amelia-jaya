@@ -7,6 +7,20 @@ import { requireAuth } from '../middleware/auth';
 export const expensesRouter = Router();
 expensesRouter.use(requireAuth);
 
+expensesRouter.get('/categories', async (_req, res) => {
+  const expenses = await prisma.expense.findMany({
+    select: { kategori: true },
+    orderBy: { createdAt: 'desc' },
+  });
+  const categories = new Map<string, string>();
+  for (const expense of expenses) {
+    const label = expense.kategori.trim();
+    const key = label.toLocaleLowerCase('id-ID');
+    if (label && !categories.has(key)) categories.set(key, label);
+  }
+  res.json([...categories.values()]);
+});
+
 const createSchema = z
   .object({
     tanggal: z.string().min(1),
