@@ -21,17 +21,18 @@ reportsRouter.get('/summary', async (req, res) => {
     }),
   ]);
 
-  const byDate = new Map<string, { tanggal: string; omsetPenjualan: number; pengeluaranLaci: number; pengeluaranLain: number }>();
+  const byDate = new Map<string, { tanggal: string; tunai: number; qris: number; pengeluaranLaci: number; pengeluaranLain: number }>();
 
   for (const c of closings) {
     const key = dayjs(c.tanggal).format('YYYY-MM-DD');
-    const entry = byDate.get(key) ?? { tanggal: key, omsetPenjualan: 0, pengeluaranLaci: 0, pengeluaranLain: 0 };
-    entry.omsetPenjualan += c.omset;
+    const entry = byDate.get(key) ?? { tanggal: key, tunai: 0, qris: 0, pengeluaranLaci: 0, pengeluaranLain: 0 };
+    if (c.sumber === 'QRIS') entry.qris += c.omset;
+    else entry.tunai += c.omset;
     byDate.set(key, entry);
   }
   for (const e of expenses) {
     const key = dayjs(e.tanggal).format('YYYY-MM-DD');
-    const entry = byDate.get(key) ?? { tanggal: key, omsetPenjualan: 0, pengeluaranLaci: 0, pengeluaranLain: 0 };
+    const entry = byDate.get(key) ?? { tanggal: key, tunai: 0, qris: 0, pengeluaranLaci: 0, pengeluaranLain: 0 };
     // Pengeluaran dari laci = uang omset yang diputar untuk belanja. Ia tetap
     // dicatat sebagai pengeluaran, tapi juga masuk kembali ke omset/pemasukan
     // tanggal itu (karena sumbernya adalah kas hasil penjualan).
@@ -44,12 +45,12 @@ reportsRouter.get('/summary', async (req, res) => {
 
   const rows = [...byDate.values()]
     .map((r) => {
-      const omset = r.omsetPenjualan + r.pengeluaranLaci; // omset + perputaran laci
+      const omset = r.tunai + r.qris + r.pengeluaranLaci; // omset + perputaran laci
       const pengeluaran = r.pengeluaranLaci + r.pengeluaranLain;
       // Laba/rugi: omset penjualan dikurangi pengeluaran yang bukan dari laci,
       // karena pengeluaran laci tidak mengurangi kas toko secara keseluruhan.
-      const labaRugi = r.omsetPenjualan - r.pengeluaranLain;
-      return { tanggal: r.tanggal, omset, pengeluaran, labaRugi };
+      const labaRugi = r.tunai + r.qris - r.pengeluaranLain;
+      return { tanggal: r.tanggal, tunai: r.tunai, qris: r.qris, pengeluaranLaci: r.pengeluaranLaci, total: r.tunai + r.qris + r.pengeluaranLaci, omset, pengeluaran, labaRugi };
     })
     .sort((a, b) => (a.tanggal < b.tanggal ? 1 : -1));
 

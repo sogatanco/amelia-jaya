@@ -6,6 +6,10 @@ import { formatTanggal } from '../utils/date';
 
 interface Row {
   tanggal: string;
+  tunai: number;
+  qris: number;
+  pengeluaranLaci: number;
+  total: number;
   omset: number;
   pengeluaran: number;
   labaRugi: number;
@@ -22,14 +26,6 @@ interface Summary {
 interface CategoryTotal {
   name: string;
   jumlah: number;
-}
-
-interface ClosingItem {
-  id: string;
-  tanggal: string;
-  omset: number;
-  sumber: 'KASIR' | 'QRIS';
-  catatan?: string | null;
 }
 
 interface ExpenseItem {
@@ -62,7 +58,6 @@ export default function Laporan() {
   const [to, setTo] = useState(dayjs().format('YYYY-MM-DD'));
   const [summary, setSummary] = useState<Summary | null>(null);
   const [totalTagihan, setTotalTagihan] = useState(0);
-  const [closings, setClosings] = useState<ClosingItem[]>([]);
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
 
   const categoryTotals = summary?.categoryTotals?.length
@@ -77,15 +72,13 @@ export default function Laporan() {
         .sort((a, b) => b.jumlah - a.jumlah);
 
   async function load() {
-    const [summaryRes, tagihanRes, closingsRes, expensesRes] = await Promise.all([
+    const [summaryRes, tagihanRes, expensesRes] = await Promise.all([
       api.get('/reports/summary', { params: { from, to } }),
       api.get('/reports/tagihan'),
-      api.get('/closings', { params: { from, to } }),
       api.get('/expenses', { params: { from, to } }),
     ]);
     setSummary(summaryRes.data);
     setTotalTagihan(tagihanRes.data.totalTagihan);
-    setClosings(closingsRes.data);
     setExpenses(expensesRes.data);
   }
 
@@ -174,24 +167,26 @@ export default function Laporan() {
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wide text-gray-500 border-b">
                   <th className="py-2 pr-4">Tanggal</th>
-                  <th className="py-2 pr-4">Sumber</th>
-                  <th className="py-2 pr-4 text-right">Omset</th>
-                  <th className="py-2">Catatan</th>
+                  <th className="py-2 pr-4 text-right">Tunai</th>
+                  <th className="py-2 pr-4 text-right">QRIS</th>
+                  <th className="py-2 pr-4 text-right">Pengeluaran dari Laci</th>
+                  <th className="py-2 text-right">Total</th>
                 </tr>
               </thead>
               <tbody>
-                {closings.map((item) => (
-                  <tr key={item.id} className="border-b last:border-0 hover:bg-gray-50">
+                {summary.rows.map((item) => (
+                  <tr key={item.tanggal} className="border-b last:border-0 hover:bg-gray-50">
                     <td className="py-2 pr-4 whitespace-nowrap">{formatTanggal(item.tanggal)}</td>
-                    <td className="py-2 pr-4">{item.sumber === 'QRIS' ? 'QRIS' : 'Kasir / Tunai'}</td>
-                    <td className="py-2 pr-4 text-right whitespace-nowrap">{formatRupiah(item.omset)}</td>
-                    <td className="py-2 text-gray-500">{item.catatan || '-'}</td>
+                    <td className="py-2 pr-4 text-right whitespace-nowrap">{formatRupiah(item.tunai)}</td>
+                    <td className="py-2 pr-4 text-right whitespace-nowrap">{formatRupiah(item.qris)}</td>
+                    <td className="py-2 pr-4 text-right whitespace-nowrap">{formatRupiah(item.pengeluaranLaci)}</td>
+                    <td className="py-2 text-right whitespace-nowrap font-medium">{formatRupiah(item.total)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {closings.length === 0 && <p className="text-sm text-gray-400 py-2">Belum ada data omset pada periode ini.</p>}
+          {summary.rows.length === 0 && <p className="text-sm text-gray-400 py-2">Belum ada data omset pada periode ini.</p>}
         </section>
       )}
 
@@ -202,11 +197,8 @@ export default function Laporan() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wide text-gray-500 border-b">
-                  <th className="py-2 pr-4">Tanggal</th>
                   <th className="py-2 pr-4">Kategori</th>
-                  <th className="py-2 pr-4 text-right">Jumlah</th>
-                  <th className="py-2 pr-4">Sumber</th>
-                  <th className="py-2">Keterangan</th>
+                  <th className="py-2 text-right">Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -219,6 +211,10 @@ export default function Laporan() {
               </tbody>
             </table>
           </div>
+          <div className="border-t mt-2 pt-2 flex justify-between font-semibold text-sm">
+            <span>Total keseluruhan</span>
+            <span>{formatRupiah(categoryTotals.reduce((total, item) => total + item.jumlah, 0))}</span>
+          </div>
           {categoryTotals.length === 0 && <p className="text-sm text-gray-400 py-2">Belum ada pengeluaran pada periode ini.</p>}
         </section>
       )}
@@ -230,8 +226,11 @@ export default function Laporan() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wide text-gray-500 border-b">
+                  <th className="py-2 pr-4">Tanggal</th>
                   <th className="py-2 pr-4">Kategori</th>
-                  <th className="py-2 text-right">Total</th>
+                  <th className="py-2 pr-4 text-right">Jumlah</th>
+                  <th className="py-2 pr-4">Sumber</th>
+                  <th className="py-2">Keterangan</th>
                 </tr>
               </thead>
               <tbody>
