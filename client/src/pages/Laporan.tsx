@@ -15,7 +15,13 @@ interface Summary {
   totalOmset: number;
   totalPengeluaran: number;
   labaRugi: number;
+  categoryTotals: CategoryTotal[];
   rows: Row[];
+}
+
+interface CategoryTotal {
+  name: string;
+  jumlah: number;
 }
 
 interface ClosingItem {
@@ -72,13 +78,6 @@ export default function Laporan() {
     setExpenses(expensesRes.data);
   }
 
-  const pengeluaranPerKategori = Object.entries(
-    expenses.reduce<Record<string, number>>((totals, item) => {
-      totals[item.kategori] = (totals[item.kategori] ?? 0) + item.jumlah;
-      return totals;
-    }, {}),
-  ).sort(([, totalA], [, totalB]) => totalB - totalA);
-
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -124,7 +123,7 @@ export default function Laporan() {
         </section>
       )}
 
-      {summary && <LaporanChart from={from} to={to} />}
+      {summary && <LaporanChart from={from} to={to} kategori={summary.categoryTotals ?? []} />}
 
       {summary && (
         <section className="bg-white rounded-xl shadow p-4">
@@ -228,16 +227,16 @@ export default function Laporan() {
                 </tr>
               </thead>
               <tbody>
-                {pengeluaranPerKategori.map(([kategori, total]) => (
-                  <tr key={kategori} className="border-b last:border-0 hover:bg-gray-50">
-                    <td className="py-2 pr-4">{kategori}</td>
-                    <td className="py-2 text-right whitespace-nowrap">{formatRupiah(total)}</td>
+                {(summary.categoryTotals ?? []).map((item) => (
+                  <tr key={item.name} className="border-b last:border-0 hover:bg-gray-50">
+                    <td className="py-2 pr-4">{item.name}</td>
+                    <td className="py-2 text-right whitespace-nowrap">{formatRupiah(item.jumlah)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {pengeluaranPerKategori.length === 0 && <p className="text-sm text-gray-400 py-2">Belum ada pengeluaran pada periode ini.</p>}
+          {(summary.categoryTotals ?? []).length === 0 && <p className="text-sm text-gray-400 py-2">Belum ada pengeluaran pada periode ini.</p>}
         </section>
       )}
     </div>

@@ -56,6 +56,12 @@ reportsRouter.get('/summary', async (req, res) => {
   const totalOmset = rows.reduce((s, r) => s + r.omset, 0);
   const totalPengeluaran = rows.reduce((s, r) => s + r.pengeluaran, 0);
   const totalLabaRugi = rows.reduce((s, r) => s + r.labaRugi, 0);
+  const categoryTotals = [...expenses.reduce((totals, expense) => {
+    totals.set(expense.kategori, (totals.get(expense.kategori) ?? 0) + expense.jumlah);
+    return totals;
+  }, new Map<string, number>())]
+    .map(([name, jumlah]) => ({ name, jumlah }))
+    .sort((a, b) => b.jumlah - a.jumlah);
 
   res.json({
     from: from.format('YYYY-MM-DD'),
@@ -63,6 +69,7 @@ reportsRouter.get('/summary', async (req, res) => {
     totalOmset,
     totalPengeluaran,
     labaRugi: totalLabaRugi,
+    categoryTotals,
     rows,
   });
 });

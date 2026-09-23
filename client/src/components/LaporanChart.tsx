@@ -44,13 +44,13 @@ function formatRupiah(n: number) {
 interface Props {
   from: string;
   to: string;
+  kategori: CategoryPoint[];
 }
 
 // Grafik omset vs pengeluaran dengan pilihan periode harian/mingguan/bulanan.
-export default function LaporanChart({ from, to }: Props) {
+export default function LaporanChart({ from, to, kategori }: Props) {
   const [periode, setPeriode] = useState<Periode>('harian');
   const [data, setData] = useState<ChartPoint[]>([]);
-  const [kategori, setKategori] = useState<CategoryPoint[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -59,7 +59,6 @@ export default function LaporanChart({ from, to }: Props) {
       .get('/reports/chart', { params: { from, to, periode } })
       .then((res) => {
         setData(res.data.data);
-        setKategori(res.data.kategori ?? []);
       })
       .finally(() => setLoading(false));
   }, [from, to, periode]);
@@ -115,10 +114,10 @@ export default function LaporanChart({ from, to }: Props) {
       {!loading && kategori.length > 0 && (
         <div className="border-t pt-4">
           <h4 className="font-semibold text-gray-800 mb-2">Pengeluaran Berdasarkan Kategori</h4>
-          <div className="w-full h-64 sm:h-72">
+          <div className="w-full min-w-0 h-64 sm:h-72">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={kategori} dataKey="jumlah" nameKey="name" cx="50%" cy="45%" outerRadius="34%" labelLine={false}>
+                <Pie data={kategori} dataKey="jumlah" nameKey="name" cx="50%" cy="45%" outerRadius="42%" labelLine={false}>
                   {kategori.map((item, index) => (
                     <Cell key={item.name} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
                   ))}
