@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
 interface NavItem {
@@ -43,6 +45,16 @@ const icons = {
       <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
   ),
+  bell: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
+    </svg>
+  ),
+  logout: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <path d="M10 17l5-5-5-5M15 12H3M21 19V5a2 2 0 0 0-2-2h-6" />
+    </svg>
+  ),
 };
 
 const cashierLinks: NavItem[] = [
@@ -57,12 +69,45 @@ const adminLinks: NavItem[] = [
   { to: '/input-harian', label: 'Harian', icon: icons.inputHarian },
   { to: '/upload-bon', label: 'Bon', icon: icons.uploadBon },
   { to: '/users', label: 'Setting', icon: icons.users },
+  { to: '/notifikasi', label: 'Notif', icon: icons.bell },
 ];
+
+interface NotificationItem {
+  id: string;
+  judul: string;
+  pesan: string;
+  dibacaAt: string | null;
+  createdAt: string;
+}
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const links = user?.role === 'ADMIN' ? adminLinks : cashierLinks;
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  async function loadNotifications() {
+    try {
+      const { data } = await api.get<NotificationItem[]>('/notifications');
+      setNotifications(data);
+    } catch {
+      setNotifications([]);
+    }
+  }
+
+  useEffect(() => {
+    loadNotifications();
+    const timer = window.setInterval(loadNotifications, 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  async function openNotification(id: string) {
+    await api.patch(`/notifications/${id}/read`);
+    setNotifications((current) => current.map((item) => (item.id === id ? { ...item, dibacaAt: new Date().toISOString() } : item)));
+  }
+
+  const unreadCount = notifications.filter((item) => !item.dibacaAt).length;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -71,15 +116,47 @@ export default function Layout() {
           <p className="font-semibold leading-tight">Toko Amelia Jaya</p>
           <p className="text-xs opacity-90 leading-tight">{user?.name} · {user?.role === 'ADMIN' ? 'Administrator' : 'Kasir'}</p>
         </div>
-        <button
-          onClick={() => {
-            logout();
-            navigate('/login');
-          }}
-          className="text-sm bg-white/20 px-3 py-1.5 rounded-md"
-        >
-          Keluar
-        </button>
+        <div className="relative flex items-center gap-2">
+          <button
+            type="button"
+            title="Notifikasi"
+            aria-label="Notifikasi"
+            onClick={() => setShowNotifications((value) => !value)}
+            className="relative p-2 rounded-md hover:bg-white/20"
+          >
+            {icons.bell}
+            {unreadCount > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-4 h-4 px-1 rounded-full bg-red-500 text-[10px] leading-4 text-center">{unreadCount > 9 ? '9+' : unreadCount}</span>}
+          </button>
+          {showNotifications && (
+            <div className="absolute right-10 top-11 z-30 w-72 max-w-[calc(100vw-2rem)] bg-white text-gray-800 rounded-lg shadow-lg border p-2">
+              <div className="flex items-center justify-between px-2 py-1">
+                <p className="font-semibold text-sm">Notifikasi</p>
+                <button type="button" className="text-xs text-brand" onClick={() => navigate('/notifikasi')}>Lihat semua</button>
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                {notifications.slice(0, 5).map((item) => (
+                  <button key={item.id} type="button" onClick={() => openNotification(item.id)} className={`w-full text-left p-2 rounded-md ${item.dibacaAt ? '' : 'bg-amber-50'}`}>
+                    <p className="text-sm font-medium truncate">{item.judul}</p>
+                    <p className="text-xs text-gray-500 line-clamp-2">{item.pesan}</p>
+                  </button>
+                ))}
+                {notifications.length === 0 && <p className="text-xs text-gray-400 px-2 py-3">Belum ada notifikasi.</p>}
+              </div>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              logout();
+              navigate('/login');
+            }}
+            title="Keluar"
+            aria-label="Keluar"
+            className="p-2 rounded-md bg-white/20 hover:bg-white/30"
+          >
+            {icons.logout}
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 p-4 pb-24 max-w-2xl w-full mx-auto">

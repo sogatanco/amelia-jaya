@@ -7,6 +7,7 @@ import UploadBon from './pages/UploadBon';
 import Tagihan from './pages/Tagihan';
 import Laporan from './pages/Laporan';
 import Users from './pages/Users';
+import Notifikasi from './pages/Notifikasi';
 
 export default function App() {
   return (
@@ -36,6 +37,14 @@ export default function App() {
           element={
             <ProtectedRoute roles={['ADMIN']}>
               <Users />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifikasi"
+          element={
+            <ProtectedRoute roles={['ADMIN']}>
+              <Notifikasi />
             </ProtectedRoute>
           }
         />

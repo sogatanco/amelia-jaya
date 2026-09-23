@@ -8,6 +8,7 @@ import { expensesRouter } from './routes/expenses';
 import { bonRouter } from './routes/bon';
 import { reportsRouter } from './routes/reports';
 import { usersRouter } from './routes/users';
+import { notificationsRouter } from './routes/notifications';
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use('/api/expenses', expensesRouter);
 app.use('/api/bon', bonRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/notifications', notificationsRouter);
 
 // Foto nota diakses lewat route /api/bon/:id/image (butuh auth), tapi tetap
 // serve folder upload untuk kebutuhan lain/statik jika diperlukan.
