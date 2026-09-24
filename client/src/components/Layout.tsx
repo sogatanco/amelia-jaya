@@ -71,6 +71,7 @@ const adminLinks: NavItem[] = [
   { to: '/upload-bon', label: 'Bon', icon: icons.uploadBon },
   { to: '/users', label: 'Setting', icon: icons.users },
   { to: '/notifikasi', label: 'Notif', icon: icons.bell },
+  { to: '/barang-kosong-admin', label: 'Kosong', icon: icons.tagihan },
 ];
 
 interface NotificationItem {

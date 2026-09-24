@@ -9,6 +9,7 @@ import Laporan from './pages/Laporan';
 import Users from './pages/Users';
 import Notifikasi from './pages/Notifikasi';
 import BarangKosong from './pages/BarangKosong';
+import BarangKosongAdmin from './pages/BarangKosongAdmin';
 
 export default function App() {
   return (
@@ -26,6 +27,14 @@ export default function App() {
         <Route path="/upload-bon" element={<UploadBon />} />
         <Route path="/tagihan" element={<Tagihan />} />
         <Route path="/barang-kosong" element={<BarangKosong />} />
+        <Route
+          path="/barang-kosong-admin"
+          element={
+            <ProtectedRoute roles={['ADMIN']}>
+              <BarangKosongAdmin />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/laporan"
           element={

@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { api } from '../api/client';
 
-interface Report { id: string; namaBarang: string; catatan: string | null; createdAt: string; createdBy: { name: string } }
+interface Report { id: string; namaBarang: string; catatan: string | null; createdAt: string; createdBy: { name: string }; dibeliAt: string | null; dibeliOleh: { name: string } | null }
 
 export default function BarangKosong() {
   const [namaBarang, setNamaBarang] = useState('');
@@ -21,7 +21,7 @@ export default function BarangKosong() {
     <section className="bg-white rounded-xl shadow p-4 space-y-3">
       <h2 className="font-semibold text-gray-800">Input Barang Kosong</h2>
       <form onSubmit={submit} className="space-y-3">
-        <input className="w-full border rounded-md px-3 py-2" placeholder="Nama barang" value={namaBarang} onChange={(event) => setNamaBarang(event.target.value)} required />
+        <textarea className="w-full border rounded-md px-3 py-2 min-h-32" placeholder="Tulis satu nama barang per baris" value={namaBarang} onChange={(event) => setNamaBarang(event.target.value)} required />
         <textarea className="w-full border rounded-md px-3 py-2" placeholder="Catatan (opsional)" value={catatan} onChange={(event) => setCatatan(event.target.value)} />
         <button className="w-full bg-brand text-white rounded-md py-2 font-medium">Simpan Barang Kosong</button>
       </form>

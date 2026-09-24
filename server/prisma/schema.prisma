@@ -31,6 +31,7 @@ model User {
   notifications Notification[]
   pushSubscriptions PushSubscription[]
   outOfStockReports OutOfStock[]
+  purchasedOutOfStock OutOfStock[] @relation("OutOfStockPurchasedBy")
 }
 
 model Notification {
@@ -54,6 +55,9 @@ model OutOfStock {
   createdAt   DateTime @default(now())
   createdById String
   createdBy   User     @relation(fields: [createdById], references: [id])
+  dibeliAt    DateTime?
+  dibeliOlehId String?
+  dibeliOleh  User?    @relation("OutOfStockPurchasedBy", fields: [dibeliOlehId], references: [id])
 
   @@index([createdAt])
 }

@@ -27,9 +27,9 @@ export async function sendNotifications(userIds: string[], payload: Notification
   }));
 }
 
-export async function notifyAdminsFromCashier(judul: string, pesan: string) {
+export async function notifyAdminsFromCashier(judul: string, pesan: string, tujuan = '/laporan') {
   const admins = await prisma.user.findMany({ where: { role: 'ADMIN', active: true }, select: { id: true } });
-  await sendNotifications(admins.map((admin) => admin.id), { judul, pesan, tujuan: '/laporan' });
+  await sendNotifications(admins.map((admin) => admin.id), { judul, pesan, tujuan });
 }
 
 export async function remindCashiersToCheckOutOfStock() {
