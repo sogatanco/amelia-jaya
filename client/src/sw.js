@@ -27,16 +27,8 @@ self.addEventListener('notificationclick', (event) => {
     const targetUrl = new URL(requestedUrl, self.location.origin);
     if (targetUrl.origin !== self.location.origin) targetUrl.href = new URL('/laporan', self.location.origin).href;
 
-    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    const appWindow = windows.find((client) => client.url.startsWith(self.location.origin));
-    if (appWindow) {
-      try {
-        await appWindow.navigate(targetUrl.href);
-        return appWindow.focus();
-      } catch {
-        return self.clients.openWindow(targetUrl.href);
-      }
-    }
+    // iOS Home Screen PWAs handle a fresh absolute open more reliably than
+    // navigating an existing WindowClient from notificationclick.
     return self.clients.openWindow(targetUrl.href);
   })());
 });
