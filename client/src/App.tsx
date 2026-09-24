@@ -8,6 +8,7 @@ import Tagihan from './pages/Tagihan';
 import Laporan from './pages/Laporan';
 import Users from './pages/Users';
 import Notifikasi from './pages/Notifikasi';
+import BarangKosong from './pages/BarangKosong';
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/input-harian" element={<InputHarian />} />
         <Route path="/upload-bon" element={<UploadBon />} />
         <Route path="/tagihan" element={<Tagihan />} />
+        <Route path="/barang-kosong" element={<BarangKosong />} />
         <Route
           path="/laporan"
           element={

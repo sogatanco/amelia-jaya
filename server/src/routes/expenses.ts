@@ -4,6 +4,7 @@ import dayjs from 'dayjs';
 import { prisma } from '../lib/prisma';
 import { requireAuth } from '../middleware/auth';
 import { categoryKey, normalizeCategoryLabel } from '../utils/category';
+import { notifyAdminsFromCashier } from '../utils/notifications';
 
 export const expensesRouter = Router();
 expensesRouter.use(requireAuth);
@@ -83,6 +84,10 @@ expensesRouter.post('/', async (req, res) => {
       createdById: req.user!.id,
     },
   });
+
+  if (req.user!.role === 'CASHIER') {
+    await notifyAdminsFromCashier('Pengeluaran Diinput Kasir', `${kategoriNormalized} sebesar Rp${jumlah.toLocaleString('id-ID')}.`);
+  }
 
   res.status(201).json(expense);
 });

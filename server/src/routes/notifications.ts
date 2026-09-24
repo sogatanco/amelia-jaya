@@ -14,7 +14,8 @@ notificationsRouter.get('/', async (req, res) => {
   });
   res.json(notifications);
 });
-import { isPushConfigured, webpush } from '../lib/push';
+import { isPushConfigured } from '../lib/push';
+import { sendNotifications } from '../utils/notifications';
 
 notificationsRouter.patch('/:id/read', async (req, res) => {
   const notification = await prisma.notification.updateMany({
@@ -49,34 +50,20 @@ notificationsRouter.post('/subscribe', async (req, res) => {
 const createSchema = z.object({
   judul: z.string().trim().min(1).max(120),
   pesan: z.string().trim().min(1).max(2000),
+  tujuan: z.string().trim().min(1).max(191),
+  penerima: z.enum(['SEMUA', 'ADMIN', 'CASHIER', 'USER']),
+  userId: z.string().optional(),
 });
 
 notificationsRouter.post('/', requireRole('ADMIN'), async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: 'Judul dan isi notifikasi wajib diisi' });
 
-  const users = await prisma.user.findMany({ where: { active: true }, select: { id: true } });
-  await prisma.notification.createMany({
-    data: users.map((user) => ({ ...parsed.data, userId: user.id })),
+  if (parsed.data.penerima === 'USER' && !parsed.data.userId) return res.status(400).json({ message: 'Pilih user penerima' });
+  const users = await prisma.user.findMany({
+    where: { active: true, ...(parsed.data.penerima === 'SEMUA' ? {} : parsed.data.penerima === 'USER' ? { id: parsed.data.userId } : { role: parsed.data.penerima }) },
+    select: { id: true },
   });
-  if (isPushConfigured()) {
-    const subscriptions = await prisma.pushSubscription.findMany({ where: { userId: { in: users.map((user) => user.id) } } });
-    const payload = JSON.stringify({ title: parsed.data.judul, body: parsed.data.pesan });
-    await Promise.all(
-      subscriptions.map(async (subscription) => {
-        try {
-          await webpush.sendNotification(
-            { endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } },
-            payload,
-          );
-        } catch (error: unknown) {
-          const statusCode = (error as { statusCode?: number })?.statusCode;
-          if (statusCode === 404 || statusCode === 410) {
-            await prisma.pushSubscription.delete({ where: { id: subscription.id } });
-          }
-        }
-      }),
-    );
-  }
+  await sendNotifications(users.map((user) => user.id), { judul: parsed.data.judul, pesan: parsed.data.pesan, tujuan: parsed.data.tujuan });
   res.status(201).json({ count: users.length });
 });

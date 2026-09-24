@@ -61,6 +61,7 @@ const cashierLinks: NavItem[] = [
   { to: '/input-harian', label: 'Harian', icon: icons.inputHarian },
   { to: '/upload-bon', label: 'Bon', icon: icons.uploadBon },
   { to: '/tagihan', label: 'Tagihan', icon: icons.tagihan },
+  { to: '/barang-kosong', label: 'Kosong', icon: icons.tagihan },
 ];
 
 const adminLinks: NavItem[] = [
@@ -78,6 +79,7 @@ interface NotificationItem {
   pesan: string;
   dibacaAt: string | null;
   createdAt: string;
+  tujuan: string;
 }
 
 function decodeVapidKey(value: string) {
@@ -152,8 +154,11 @@ export default function Layout() {
   }
 
   async function openNotification(id: string) {
+    const target = notifications.find((item) => item.id === id)?.tujuan || '/notifikasi';
     await api.patch(`/notifications/${id}/read`);
     setNotifications((current) => current.map((item) => (item.id === id ? { ...item, dibacaAt: new Date().toISOString() } : item)));
+    setShowNotifications(false);
+    navigate(target);
   }
 
   const unreadCount = notifications.filter((item) => !item.dibacaAt).length;

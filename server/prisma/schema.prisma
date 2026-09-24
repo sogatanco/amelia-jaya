@@ -30,18 +30,31 @@ model User {
   bons     Bon[]
   notifications Notification[]
   pushSubscriptions PushSubscription[]
+  outOfStockReports OutOfStock[]
 }
 
 model Notification {
   id        String    @id @default(cuid())
   judul     String
   pesan     String    @db.Text
+  tujuan    String    @default("/")
   dibacaAt  DateTime?
   createdAt DateTime  @default(now())
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, dibacaAt])
+  @@index([createdAt])
+}
+
+model OutOfStock {
+  id          String   @id @default(cuid())
+  namaBarang  String
+  catatan     String?
+  createdAt   DateTime @default(now())
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+
   @@index([createdAt])
 }
 

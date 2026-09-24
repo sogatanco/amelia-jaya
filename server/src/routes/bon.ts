@@ -7,6 +7,7 @@ import dayjs from 'dayjs';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { normalizeCategoryLabel } from '../utils/category';
+import { notifyAdminsFromCashier } from '../utils/notifications';
 import { readBonImage } from '../utils/ocr';
 
 export const bonRouter = Router();
@@ -147,6 +148,9 @@ bonRouter.patch('/:id/confirm', async (req, res) => {
       });
       return updatedBon;
     });
+    if (req.user!.role === 'CASHIER') {
+      await notifyAdminsFromCashier('Bon Tunai Dikonfirmasi Kasir', `Bon${supplier ? ` dari ${supplier}` : ''} sebesar Rp${jumlah.toLocaleString('id-ID')}.`);
+    }
     return res.json(updated);
   }
 
@@ -161,6 +165,9 @@ bonRouter.patch('/:id/confirm', async (req, res) => {
       jatuhTempo: bon.tipe === 'CREDIT' ? (jatuhTempo ? dayjs(jatuhTempo).toDate() : fallbackDueDate) : null,
     },
   });
+  if (req.user!.role === 'CASHIER') {
+    await notifyAdminsFromCashier('Bon Kredit Diinput Kasir', `Bon${supplier ? ` dari ${supplier}` : ''} sebesar Rp${jumlah.toLocaleString('id-ID')}.`);
+  }
   res.json(updated);
 });
 

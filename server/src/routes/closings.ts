@@ -3,6 +3,7 @@ import { z } from 'zod';
 import dayjs from 'dayjs';
 import { prisma } from '../lib/prisma';
 import { requireAuth } from '../middleware/auth';
+import { notifyAdminsFromCashier } from '../utils/notifications';
 
 export const closingsRouter = Router();
 closingsRouter.use(requireAuth);
@@ -75,6 +76,10 @@ closingsRouter.post('/', async (req, res) => {
     update: { omset, catatan },
     create: { tanggal: tanggalDate, omset, sumber, catatan, createdById: req.user!.id },
   });
+
+  if (req.user!.role === 'CASHIER') {
+    await notifyAdminsFromCashier('Omset Diinput Kasir', `Omset ${sumber} tanggal ${tanggal} sebesar Rp${omset.toLocaleString('id-ID')}.`);
+  }
 
   res.json(serializeClosing(closing));
 });
