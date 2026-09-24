@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 
 interface NotificationItem {
@@ -22,6 +23,7 @@ function formatTanggal(value: string) {
 }
 
 export default function Notifikasi() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [judul, setJudul] = useState('');
   const [pesan, setPesan] = useState('');
@@ -112,14 +114,22 @@ export default function Notifikasi() {
       <section className="bg-white rounded-xl shadow p-4 space-y-3">
         <h3 className="font-semibold text-gray-800">Notifikasi Terbaru</h3>
         {items.map((item) => (
-          <article key={item.id} className={`border rounded-md p-3 ${item.dibacaAt ? 'bg-white' : 'bg-amber-50 border-amber-200'}`}>
+          <button
+            key={item.id}
+            type="button"
+            onClick={async () => {
+              await api.patch(`/notifications/${item.id}/read`);
+              navigate(item.tujuan || '/notifikasi');
+            }}
+            className={`w-full text-left border rounded-md p-3 ${item.dibacaAt ? 'bg-white' : 'bg-amber-50 border-amber-200'}`}
+          >
             <div className="flex justify-between gap-3">
               <h4 className="font-medium text-gray-800">{item.judul}</h4>
               <time className="text-[11px] text-gray-400 whitespace-nowrap">{formatTanggal(item.createdAt)}</time>
             </div>
             <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{item.pesan}</p>
             <p className="text-xs text-brand mt-1">Tujuan: {item.tujuan}</p>
-          </article>
+          </button>
         ))}
         {items.length === 0 && <p className="text-sm text-gray-400">Belum ada notifikasi.</p>}
       </section>

@@ -185,7 +185,7 @@ export default function Layout() {
             <div className="absolute right-10 top-11 z-30 w-72 max-w-[calc(100vw-2rem)] bg-white text-gray-800 rounded-lg shadow-lg border p-2">
               <div className="flex items-center justify-between px-2 py-1">
                 <p className="font-semibold text-sm">Notifikasi</p>
-                <button type="button" className="text-xs text-brand" onClick={() => navigate('/notifikasi')}>Lihat semua</button>
+                {user?.role === 'ADMIN' && <button type="button" className="text-xs text-brand" onClick={() => navigate('/notifikasi')}>Lihat semua</button>}
               </div>
               {notificationPermission !== 'granted' || !pushRegistered ? (
                 <button type="button" onClick={enableDeviceNotifications} className="w-full text-left text-xs text-brand bg-green-50 rounded-md px-2 py-2 mb-1">
