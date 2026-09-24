@@ -154,7 +154,7 @@ export default function Layout() {
   }
 
   async function openNotification(id: string) {
-    const target = notifications.find((item) => item.id === id)?.tujuan || '/notifikasi';
+    const target = notifications.find((item) => item.id === id)?.tujuan || '/laporan';
     await api.patch(`/notifications/${id}/read`);
     setNotifications((current) => current.map((item) => (item.id === id ? { ...item, dibacaAt: new Date().toISOString() } : item)));
     setShowNotifications(false);

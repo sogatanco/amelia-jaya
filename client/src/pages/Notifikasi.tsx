@@ -60,6 +60,11 @@ export default function Notifikasi() {
     }
   }
 
+  async function remove(id: string) {
+    await api.delete(`/notifications/${id}`);
+    setItems((current) => current.filter((item) => item.id !== id));
+  }
+
   return (
     <div className="space-y-4">
       <section className="bg-white rounded-xl shadow p-4 space-y-3">
@@ -114,22 +119,36 @@ export default function Notifikasi() {
       <section className="bg-white rounded-xl shadow p-4 space-y-3">
         <h3 className="font-semibold text-gray-800">Notifikasi Terbaru</h3>
         {items.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={async () => {
-              await api.patch(`/notifications/${item.id}/read`);
-              navigate(item.tujuan || '/notifikasi');
-            }}
-            className={`w-full text-left border rounded-md p-3 ${item.dibacaAt ? 'bg-white' : 'bg-amber-50 border-amber-200'}`}
-          >
-            <div className="flex justify-between gap-3">
-              <h4 className="font-medium text-gray-800">{item.judul}</h4>
-              <time className="text-[11px] text-gray-400 whitespace-nowrap">{formatTanggal(item.createdAt)}</time>
+          <div key={item.id} className={`border rounded-md p-3 ${item.dibacaAt ? 'bg-white' : 'bg-amber-50 border-amber-200'}`}>
+            <div className="flex items-start gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  await api.patch(`/notifications/${item.id}/read`);
+                  navigate(item.tujuan || '/laporan');
+                }}
+                className="flex-1 text-left"
+              >
+                <div className="flex justify-between gap-3">
+                  <h4 className="font-medium text-gray-800">{item.judul}</h4>
+                  <time className="text-[11px] text-gray-400 whitespace-nowrap">{formatTanggal(item.createdAt)}</time>
+                </div>
+                <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{item.pesan}</p>
+                <p className="text-xs text-brand mt-1">Buka: {item.tujuan || '/laporan'}</p>
+              </button>
+              <button
+                type="button"
+                title="Hapus notifikasi"
+                aria-label="Hapus notifikasi"
+                onClick={() => remove(item.id)}
+                className="shrink-0 text-red-500 hover:text-red-700 p-1"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M10 11v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3" />
+                </svg>
+              </button>
             </div>
-            <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{item.pesan}</p>
-            <p className="text-xs text-brand mt-1">Tujuan: {item.tujuan}</p>
-          </button>
+          </div>
         ))}
         {items.length === 0 && <p className="text-sm text-gray-400">Belum ada notifikasi.</p>}
       </section>

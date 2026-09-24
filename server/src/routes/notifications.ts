@@ -12,7 +12,15 @@ notificationsRouter.get('/', async (req, res) => {
     orderBy: { createdAt: 'desc' },
     take: 30,
   });
-  res.json(notifications);
+  res.json(notifications.map((notification) => ({ ...notification, tujuan: notification.tujuan || '/laporan' })));
+});
+
+notificationsRouter.delete('/:id', requireRole('ADMIN'), async (req, res) => {
+  const deleted = await prisma.notification.deleteMany({
+    where: { id: req.params.id, userId: req.user!.id },
+  });
+  if (!deleted.count) return res.status(404).json({ message: 'Notifikasi tidak ditemukan' });
+  res.status(204).end();
 });
 import { isPushConfigured } from '../lib/push';
 import { sendNotifications } from '../utils/notifications';
