@@ -13,7 +13,13 @@ export async function sendNotifications(userIds: string[], payload: Notification
   if (!isPushConfigured()) return;
 
   const subscriptions = await prisma.pushSubscription.findMany({ where: { userId: { in: userIds } } });
-  const pushPayload = JSON.stringify({ title: payload.judul, body: payload.pesan, url: payload.tujuan });
+  const pushPayload = JSON.stringify({
+    title: payload.judul,
+    body: payload.pesan,
+    url: payload.tujuan,
+    targetUrl: payload.tujuan,
+    path: payload.tujuan,
+  });
   await Promise.all(subscriptions.map(async (subscription) => {
     try {
       await webpush.sendNotification(
