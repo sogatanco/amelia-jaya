@@ -17,5 +17,18 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  event.waitUntil(self.clients.openWindow(event.notification.data?.url || '/'));
+  event.waitUntil((async () => {
+    const requestedUrl = event.notification.data?.url || '/laporan';
+    const targetUrl = new URL(requestedUrl, self.location.origin);
+    if (targetUrl.origin !== self.location.origin) targetUrl.href = new URL('/laporan', self.location.origin).href;
+
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of windows) {
+      if ('navigate' in client) {
+        await client.navigate(targetUrl.href);
+        return client.focus();
+      }
+    }
+    return self.clients.openWindow(targetUrl.href);
+  })());
 });

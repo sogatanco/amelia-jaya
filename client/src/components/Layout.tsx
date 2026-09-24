@@ -109,7 +109,13 @@ export default function Layout() {
       const previous = localStorage.getItem('last-notification-id');
       if (notificationInitialized.current && data.length > 0 && data[0].id !== previous && notificationPermission === 'granted' && typeof Notification !== 'undefined') {
         const newest = previous ? data.find((item) => item.id === data[0].id) : null;
-        if (newest) new Notification(newest.judul, { body: newest.pesan, icon: '/icons/icon-192.png', tag: newest.id });
+        if (newest) {
+          const deviceNotification = new Notification(newest.judul, { body: newest.pesan, icon: '/icons/icon-192.png', tag: newest.id });
+          deviceNotification.onclick = () => {
+            window.focus();
+            window.location.href = newest.tujuan || '/laporan';
+          };
+        }
       }
       if (data[0]) localStorage.setItem('last-notification-id', data[0].id);
       setNotifications(data);
