@@ -50,6 +50,7 @@ export default function Tagihan() {
   const isAdmin = user?.role === 'ADMIN';
   const [filter, setFilter] = useState<FilterMode>('BELUM_LUNAS');
   const [items, setItems] = useState<BonItem[]>([]);
+  const [unpaidItems, setUnpaidItems] = useState<BonItem[]>([]);
   const [selected, setSelected] = useState<BonItem | null>(null);
   const [preview, setPreview] = useState<BonItem | null>(null);
   const [editing, setEditing] = useState<BonItem | null>(null);
@@ -66,8 +67,12 @@ export default function Tagihan() {
         : mode === 'LUNAS'
           ? { tipe: 'CREDIT', status: 'LUNAS' }
         : { status: mode };
-    const { data } = await api.get('/bon', { params });
+    const [{ data }, { data: unpaidData }] = await Promise.all([
+      api.get<BonItem[]>('/bon', { params }),
+      api.get<BonItem[]>('/bon', { params: { status: 'BELUM_LUNAS' } }),
+    ]);
     setItems(data);
+    setUnpaidItems(unpaidData);
   }
 
   useEffect(() => {
@@ -81,7 +86,7 @@ export default function Tagihan() {
     const today = dayjs().startOf('day');
     return [0, 1, 2].map((offset) => {
       const date = today.add(offset, 'day');
-      const dueItems = items.filter(
+      const dueItems = unpaidItems.filter(
         (item) => item.jatuhTempo && dayjs(item.jatuhTempo).format('YYYY-MM-DD') === date.format('YYYY-MM-DD'),
       );
       return {
@@ -91,7 +96,7 @@ export default function Tagihan() {
         amount: dueItems.reduce((sum, item) => sum + Math.max((item.jumlah ?? 0) - (item.paidAmount ?? 0), 0), 0),
       };
     });
-  }, [items]);
+  }, [unpaidItems]);
   const sortedItems = useMemo(
     () =>
       [...items].sort((a, b) => {
@@ -159,21 +164,19 @@ export default function Tagihan() {
         </div>
       </section>
 
-      {filter === 'BELUM_LUNAS' && (
-        <section className="bg-white rounded-xl shadow p-4 space-y-2">
-          <h3 className="font-semibold text-gray-800">Tagihan Jatuh Tempo</h3>
-          <div className="grid grid-cols-3 gap-2">
-            {dueDateSummaries.map((summary) => (
-              <div key={summary.label} className="rounded-lg bg-gray-50 p-2 text-center">
-                <p className="text-xs text-gray-500">{summary.label}</p>
-                <p className="text-xs text-gray-500">{summary.date}</p>
-                <p className="text-sm font-semibold text-red-600">{formatRupiah(summary.amount)}</p>
-                <p className="text-xs text-gray-500">{summary.count} tagihan</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      <section className="bg-white rounded-xl shadow p-4 space-y-2">
+        <h3 className="font-semibold text-gray-800">Total Tagihan Belum Dibayar per Jatuh Tempo</h3>
+        <div className="grid grid-cols-3 gap-2">
+          {dueDateSummaries.map((summary) => (
+            <div key={summary.label} className="rounded-lg bg-gray-50 p-2 text-center">
+              <p className="text-xs font-medium text-gray-700">{summary.label}</p>
+              <p className="text-xs text-gray-500">{summary.date}</p>
+              <p className="text-sm font-semibold text-red-600">{formatRupiah(summary.amount)}</p>
+              <p className="text-xs text-gray-500">{summary.count} tagihan</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <ul className="space-y-2">
         {sortedItems.map((i) => {

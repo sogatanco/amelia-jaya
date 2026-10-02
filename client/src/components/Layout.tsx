@@ -61,7 +61,7 @@ const cashierLinks: NavItem[] = [
   { to: '/input-harian', label: 'Harian', icon: icons.inputHarian },
   { to: '/upload-bon', label: 'Bon', icon: icons.uploadBon },
   { to: '/tagihan', label: 'Tagihan', icon: icons.tagihan },
-  { to: '/barang-kosong', label: 'Kosong', icon: icons.tagihan },
+  { to: '/barang-kosong', label: 'Barang Kosong', icon: icons.tagihan },
 ];
 
 const adminLinks: NavItem[] = [
@@ -71,7 +71,7 @@ const adminLinks: NavItem[] = [
   { to: '/upload-bon', label: 'Bon', icon: icons.uploadBon },
   { to: '/users', label: 'Setting', icon: icons.users },
   { to: '/notifikasi', label: 'Notif', icon: icons.bell },
-  { to: '/barang-kosong-admin', label: 'Kosong', icon: icons.tagihan },
+  { to: '/barang-kosong-admin', label: 'Barang Kosong', icon: icons.tagihan },
 ];
 
 interface NotificationItem {
