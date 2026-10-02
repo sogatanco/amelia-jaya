@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import dayjs from 'dayjs';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import BayarTagihanDialog, { type TagihanItem } from '../components/BayarTagihanDialog';
@@ -76,6 +77,30 @@ export default function Tagihan() {
 
   const totalSisa = items.reduce((s, i) => s + ((i.jumlah ?? 0) - (i.paidAmount ?? 0)), 0);
   const totalJumlah = items.reduce((s, i) => s + (i.jumlah ?? 0), 0);
+  const dueDateSummaries = useMemo(() => {
+    const today = dayjs().startOf('day');
+    return [0, 1, 2].map((offset) => {
+      const date = today.add(offset, 'day');
+      const dueItems = items.filter(
+        (item) => item.jatuhTempo && dayjs(item.jatuhTempo).format('YYYY-MM-DD') === date.format('YYYY-MM-DD'),
+      );
+      return {
+        label: offset === 0 ? 'Hari ini' : offset === 1 ? 'Besok' : 'Lusa',
+        date: date.format('DD/MM/YYYY'),
+        count: dueItems.length,
+        amount: dueItems.reduce((sum, item) => sum + Math.max((item.jumlah ?? 0) - (item.paidAmount ?? 0), 0), 0),
+      };
+    });
+  }, [items]);
+  const sortedItems = useMemo(
+    () =>
+      [...items].sort((a, b) => {
+        if (!a.jatuhTempo) return b.jatuhTempo ? 1 : 0;
+        if (!b.jatuhTempo) return -1;
+        return dayjs(a.jatuhTempo).valueOf() - dayjs(b.jatuhTempo).valueOf();
+      }),
+    [items],
+  );
 
   const judul =
     filter === 'BELUM_LUNAS'
@@ -134,8 +159,24 @@ export default function Tagihan() {
         </div>
       </section>
 
+      {filter === 'BELUM_LUNAS' && (
+        <section className="bg-white rounded-xl shadow p-4 space-y-2">
+          <h3 className="font-semibold text-gray-800">Tagihan Jatuh Tempo</h3>
+          <div className="grid grid-cols-3 gap-2">
+            {dueDateSummaries.map((summary) => (
+              <div key={summary.label} className="rounded-lg bg-gray-50 p-2 text-center">
+                <p className="text-xs text-gray-500">{summary.label}</p>
+                <p className="text-xs text-gray-500">{summary.date}</p>
+                <p className="text-sm font-semibold text-red-600">{formatRupiah(summary.amount)}</p>
+                <p className="text-xs text-gray-500">{summary.count} tagihan</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <ul className="space-y-2">
-        {items.map((i) => {
+        {sortedItems.map((i) => {
           const sisa = (i.jumlah ?? 0) - (i.paidAmount ?? 0);
           return (
             <li key={i.id} className="bg-white rounded-xl shadow p-4 flex justify-between items-center">

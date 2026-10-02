@@ -7,8 +7,9 @@ import { notifyAdminsFromCashier } from '../utils/notifications';
 export const outOfStockRouter = Router();
 outOfStockRouter.use(requireAuth);
 
-outOfStockRouter.get('/', async (_req, res) => {
+outOfStockRouter.get('/', async (req, res) => {
   const reports = await prisma.outOfStock.findMany({
+    where: req.user?.role === 'CASHIER' ? { dibeliAt: null } : {},
     orderBy: { createdAt: 'desc' },
     take: 100,
     include: { createdBy: { select: { name: true } }, dibeliOleh: { select: { name: true } } },
