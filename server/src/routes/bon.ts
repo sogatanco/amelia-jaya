@@ -178,7 +178,7 @@ bonRouter.get('/', async (req, res) => {
       ...(tipe ? { tipe } : {}),
       ...(status ? { status: status as never } : {}),
     },
-    orderBy: { createdAt: 'desc' },
+    orderBy: [{ jatuhTempo: 'asc' }, { createdAt: 'desc' }],
     include: { createdBy: { select: { name: true } } },
   });
   res.json(bons);

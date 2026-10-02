@@ -102,7 +102,7 @@ export default function Tagihan() {
       [...items].sort((a, b) => {
         if (!a.jatuhTempo) return b.jatuhTempo ? 1 : 0;
         if (!b.jatuhTempo) return -1;
-        return dayjs(a.jatuhTempo).valueOf() - dayjs(b.jatuhTempo).valueOf();
+        return dayjs(a.jatuhTempo).startOf('day').valueOf() - dayjs(b.jatuhTempo).startOf('day').valueOf();
       }),
     [items],
   );
