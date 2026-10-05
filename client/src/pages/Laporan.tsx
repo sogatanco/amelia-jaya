@@ -80,6 +80,7 @@ export default function Laporan() {
   const [totalTagihan, setTotalTagihan] = useState(0);
   const [closings, setClosings] = useState<ClosingItem[]>([]);
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
+  const [expenseSearch, setExpenseSearch] = useState('');
 
   const categoryTotals = summary?.categoryTotals?.length
     ? summary.categoryTotals
@@ -124,6 +125,21 @@ export default function Laporan() {
     totals[tanggal] = (totals[tanggal] ?? 0) + dariLaci;
     return totals;
   }, {});
+  const normalizedExpenseSearch = expenseSearch.trim().toLocaleLowerCase('id-ID');
+  const filteredExpenses = normalizedExpenseSearch
+    ? expenses.filter((item) =>
+        [
+          item.tanggal,
+          formatTanggal(item.tanggal),
+          item.kategori,
+          item.jumlah,
+          formatRupiah(item.jumlah),
+          item.sumberDana,
+          formatSumberDana(item),
+          item.keterangan,
+        ].some((value) => String(value ?? '').toLocaleLowerCase('id-ID').includes(normalizedExpenseSearch)),
+      )
+    : expenses;
 
   return (
     <div className="space-y-4">
@@ -269,6 +285,14 @@ export default function Laporan() {
       {summary && (
         <section className="bg-white rounded-xl shadow p-4">
           <h3 className="font-semibold text-gray-800 mb-2">Daftar Pengeluaran</h3>
+          <input
+            type="search"
+            aria-label="Cari pengeluaran"
+            placeholder="Cari kategori, keterangan, tanggal, atau jumlah..."
+            value={expenseSearch}
+            onChange={(e) => setExpenseSearch(e.target.value)}
+            className="w-full border rounded-md px-3 py-2 text-sm mb-3"
+          />
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -281,7 +305,7 @@ export default function Laporan() {
                 </tr>
               </thead>
               <tbody>
-                {expenses.map((item) => (
+                {filteredExpenses.map((item) => (
                   <tr key={item.id} className="border-b last:border-0 hover:bg-gray-50">
                     <td className="py-2 pr-4 whitespace-nowrap">{formatTanggal(item.tanggal)}</td>
                     <td className="py-2 pr-4">{item.kategori}</td>
@@ -293,7 +317,11 @@ export default function Laporan() {
               </tbody>
             </table>
           </div>
-          {expenses.length === 0 && <p className="text-sm text-gray-400 py-2">Belum ada pengeluaran pada periode ini.</p>}
+          {filteredExpenses.length === 0 && (
+            <p className="text-sm text-gray-400 py-2">
+              {normalizedExpenseSearch ? 'Pengeluaran tidak ditemukan.' : 'Belum ada pengeluaran pada periode ini.'}
+            </p>
+          )}
         </section>
       )}
     </div>

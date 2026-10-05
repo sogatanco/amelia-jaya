@@ -49,6 +49,7 @@ export default function Tagihan() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
   const [filter, setFilter] = useState<FilterMode>('BELUM_LUNAS');
+  const [search, setSearch] = useState('');
   const [items, setItems] = useState<BonItem[]>([]);
   const [unpaidItems, setUnpaidItems] = useState<BonItem[]>([]);
   const [selected, setSelected] = useState<BonItem | null>(null);
@@ -106,6 +107,28 @@ export default function Tagihan() {
       }),
     [items],
   );
+  const normalizedSearch = search.trim().toLocaleLowerCase('id-ID');
+  const filteredItems = normalizedSearch
+    ? sortedItems.filter((item) =>
+        [
+          item.supplier,
+          item.tanggal,
+          formatTanggal(item.tanggal),
+          item.jatuhTempo,
+          item.jatuhTempo ? formatTanggal(item.jatuhTempo) : '',
+          item.paidAt,
+          item.paidAt ? formatTanggal(item.paidAt) : '',
+          item.tipe === 'TITIP' ? 'barang titip' : item.tipe === 'CASH' ? 'bon tunai' : 'tagihan',
+          filter === 'LUNAS' ? 'lunas sudah dibayar' : filter === 'CASH' ? 'bon tunai' : 'belum dibayar',
+          item.jumlah,
+          formatRupiah(item.jumlah ?? 0),
+          item.paidAmount,
+          formatRupiah(item.paidAmount ?? 0),
+        ]
+          .filter((value) => value != null)
+          .some((value) => String(value).toLocaleLowerCase('id-ID').includes(normalizedSearch)),
+      )
+    : sortedItems;
 
   const judul =
     filter === 'BELUM_LUNAS'
@@ -178,8 +201,17 @@ export default function Tagihan() {
         </div>
       </section>
 
+      <input
+        type="search"
+        aria-label="Cari tagihan"
+        placeholder="Cari supplier, tanggal, atau jumlah..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="w-full bg-white border rounded-xl px-4 py-3 text-sm shadow-sm"
+      />
+
       <ul className="space-y-2">
-        {sortedItems.map((i) => {
+        {filteredItems.map((i) => {
           const sisa = (i.jumlah ?? 0) - (i.paidAmount ?? 0);
           return (
             <li key={i.id} className="bg-white rounded-xl shadow p-4 flex justify-between items-center">
@@ -252,9 +284,11 @@ export default function Tagihan() {
             </li>
           );
         })}
-        {items.length === 0 && (
+        {filteredItems.length === 0 && (
           <p className="text-sm text-gray-400">
-            {filter === 'BELUM_LUNAS'
+            {normalizedSearch
+              ? 'Tagihan tidak ditemukan.'
+              : filter === 'BELUM_LUNAS'
               ? 'Tidak ada tagihan tertunda.'
               : filter === 'LUNAS'
                 ? 'Belum ada tagihan yang dibayar.'
