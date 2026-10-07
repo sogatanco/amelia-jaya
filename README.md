@@ -74,6 +74,79 @@ IP komputer di HP yang satu WiFi (mis. `http://192.168.1.x:5173`).
 Setelah itu ikon aplikasi muncul di layar utama dan terbuka full-screen
 seperti aplikasi native.
 
+## Build Aplikasi Android & iOS (Capacitor)
+
+Web/PWA tetap dibuild dan di-deploy seperti biasa. Capacitor membungkus frontend
+React yang sama menjadi proyek native; backend API tetap harus online dan
+terjangkau oleh perangkat.
+
+### Android
+
+Persyaratan: Node.js 20+, Android Studio, Android SDK, dan Java yang didukung
+versi Android Gradle Plugin proyek.
+
+```powershell
+cd client
+npm install
+npm run build:native
+npx cap add android
+npx cap sync android
+npx cap open android
+```
+
+Di Android Studio, pilih **Build > Build Bundle(s) / APK(s) > Build APK(s)**
+atau **Generate Signed Bundle / APK** untuk rilis Play Store.
+
+### iOS
+
+Persyaratan: macOS, Xcode, dan CocoaPods. Proyek iOS dapat disiapkan dari
+folder `client`; build, signing, dan distribusi iOS memerlukan macOS/Xcode.
+
+```bash
+cd client
+npm install
+npm run build:native
+npx cap add ios
+npx cap sync ios
+npx cap open ios
+```
+
+### Sinkronisasi perubahan frontend
+
+Setiap kali kode frontend berubah, build ulang lalu sinkronkan aset ke proyek
+native:
+
+```powershell
+cd client
+npm run build:native
+npx cap sync
+```
+
+Build web tetap menggunakan `npm run build` dan tidak memakai konfigurasi API
+native. Build native memakai `client/.env.native` dengan API
+`https://amelia-jaya.shop/api` dan koneksi HTTPS tanpa pengecualian HTTP.
+
+Pastikan `server/.env` production mengizinkan origin website serta WebView
+Android/iOS agar request native tidak ditolak oleh CORS:
+
+```env
+CORS_ORIGIN="https://amelia-jaya.shop,https://localhost,capacitor://localhost"
+```
+
+Backend menerima daftar origin yang dipisahkan koma. Terapkan nilai ini pada
+server lalu restart backend. Contoh untuk VPS dengan PM2:
+
+```bash
+pm2 restart amelia-api --update-env
+```
+
+Pemeriksaan API pada 7 Oktober 2026 masih menunjukkan CORS mengizinkan alamat
+IP lama, jadi pengaturan production ini perlu diterapkan sebelum aplikasi
+native dapat memakai API.
+
+Notifikasi dalam aplikasi tetap tersedia. Registrasi Web Push perangkat hanya
+tersedia untuk browser/PWA; push native FCM/APNs belum dikonfigurasi.
+
 ## Install di Hosting / Shared Hosting
 
 Berikut panduan paling realistis untuk deployment di shared hosting yang mendukung Node.js (contoh: cPanel/Node.js App, Plesk, atau hosting dengan runtime Node.js). Jika hosting Anda hanya menyediakan PHP/HTML statis tanpa runtime Node.js, maka solusi yang paling aman adalah:
@@ -844,7 +917,7 @@ server {
   location / {
     try_files $uri $uri/ /index.html;
   }
-}
+}  
 ```
 
 Aktifkan dan tes konfigurasi:

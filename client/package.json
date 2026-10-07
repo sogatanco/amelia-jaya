@@ -6,9 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:native": "tsc -b && vite build --mode native",
+    "cap:sync": "cap sync",
+    "cap:android": "cap open android",
+    "cap:ios": "cap open ios",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/core": "^7.4.3",
     "axios": "^1.7.7",
     "dayjs": "^1.11.13",
     "react": "^18.3.1",
@@ -17,6 +22,9 @@
     "recharts": "^3.10.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.4.3",
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/ios": "^7.4.3",
     "@types/react": "^18.3.9",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",

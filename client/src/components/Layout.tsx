@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
@@ -194,7 +195,7 @@ export default function Layout() {
                 <p className="font-semibold text-sm">Notifikasi</p>
                 {user?.role === 'ADMIN' && <button type="button" className="text-xs text-brand" onClick={() => navigate('/notifikasi')}>Lihat semua</button>}
               </div>
-              {notificationPermission !== 'granted' || !pushRegistered ? (
+              {!Capacitor.isNativePlatform() && (notificationPermission !== 'granted' || !pushRegistered) ? (
                 <button type="button" onClick={enableDeviceNotifications} className="w-full text-left text-xs text-brand bg-green-50 rounded-md px-2 py-2 mb-1">
                   {notificationPermission === 'granted' ? 'Daftarkan Notifikasi Push' : 'Aktifkan Notifikasi Perangkat'}
                 </button>

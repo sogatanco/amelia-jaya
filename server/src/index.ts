@@ -14,7 +14,12 @@ import { remindCashiersToCheckOutOfStock } from './utils/notifications';
 
 const app = express();
 
-app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
+const corsOrigins = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(cors({ origin: corsOrigins.length > 0 ? corsOrigins : '*' }));
 app.use(express.json());
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));

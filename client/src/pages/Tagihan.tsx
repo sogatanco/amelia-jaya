@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
-import { api } from '../api/client';
+import { api, apiBaseUrl } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import BayarTagihanDialog, { type TagihanItem } from '../components/BayarTagihanDialog';
 import EditTagihanDialog from '../components/EditTagihanDialog';
@@ -12,7 +12,7 @@ function formatRupiah(n: number) {
 }
 
 function FakturPreviewDialog({ item, onClose }: { item: TagihanItem; onClose: () => void }) {
-  const imageUrl = `/api/bon/${item.id}/image`;
+  const imageUrl = `${apiBaseUrl}/bon/${item.id}/image`;
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-3" onClick={onClose}>
