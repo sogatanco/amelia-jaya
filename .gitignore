@@ -1,21 +1,48 @@
+# Node.js dependencies and build output
 node_modules/
 dist/
-*.log
+client/dist/
+server/dist/
 
-# File environment & credential (JANGAN di-push)
+# Flutter tooling and generated artifacts
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+build/
+**/build/
+*.iml
+
+# Android local state (keep Gradle wrapper and project configuration tracked)
+android/.gradle/
+android/.kotlin/
+android/local.properties
+android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+
+# IDE and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local environment and credentials (never commit service-account keys)
 .env
-.env.production
+.env.*
+!.env.example
 *.local
+google-vision-service-account.json
+*service-account*.json
+cloudflare-*.json
+clouflare-*.json
 
-# Database lokal
+# Local databases
 *.db
 *.db-journal
 
-# Credential Google Vision
-clouflare-*.json
-google-vision-service-account.json
-server/google-vision-service-account.json
-
-# Uploads (foto nota)
-server/uploads/*
-!server/uploads/.gitkeep
+# User uploads and local OCR data
+/uploads/*
+!/uploads/.gitkeep
+/server/uploads/*
+!/server/uploads/.gitkeep
+/server/*.traineddata
+/PHOTO-*.jpg

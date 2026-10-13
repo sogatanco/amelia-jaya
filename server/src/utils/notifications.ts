@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { isPushConfigured, webpush } from '../lib/push';
+import { sendFcmNotifications } from '../lib/fcm';
 
 interface NotificationPayload {
   judul: string;
@@ -9,28 +10,68 @@ interface NotificationPayload {
 
 export async function sendNotifications(userIds: string[], payload: NotificationPayload) {
   if (!userIds.length) return;
-  await prisma.notification.createMany({ data: userIds.map((userId) => ({ ...payload, userId })) });
-  if (!isPushConfigured()) return;
+  const notifications = await Promise.all(
+    userIds.map((userId) => prisma.notification.create({ data: { ...payload, userId } })),
+  );
 
-  const subscriptions = await prisma.pushSubscription.findMany({ where: { userId: { in: userIds } } });
-  const pushPayload = JSON.stringify({
-    title: payload.judul,
-    body: payload.pesan,
-    url: payload.tujuan,
-    targetUrl: payload.tujuan,
-    path: payload.tujuan,
-  });
-  await Promise.all(subscriptions.map(async (subscription) => {
-    try {
-      await webpush.sendNotification(
-        { endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } },
-        pushPayload,
+  await Promise.all([
+    (async () => {
+      if (!isPushConfigured()) return;
+      const subscriptions = await prisma.pushSubscription.findMany({
+        where: { userId: { in: userIds } },
+      });
+      const pushPayload = JSON.stringify({
+        title: payload.judul,
+        body: payload.pesan,
+        url: payload.tujuan,
+        targetUrl: payload.tujuan,
+        path: payload.tujuan,
+      });
+      await Promise.all(
+        subscriptions.map(async (subscription) => {
+          try {
+            await webpush.sendNotification(
+              {
+                endpoint: subscription.endpoint,
+                keys: { p256dh: subscription.p256dh, auth: subscription.auth },
+              },
+              pushPayload,
+            );
+          } catch (error: unknown) {
+            const statusCode = (error as { statusCode?: number })?.statusCode;
+            if (statusCode === 404 || statusCode === 410) {
+              await prisma.pushSubscription.delete({ where: { id: subscription.id } });
+            } else {
+              console.error('Web Push notification delivery failed.', error);
+            }
+          }
+        }),
       );
-    } catch (error: unknown) {
-      const statusCode = (error as { statusCode?: number })?.statusCode;
-      if (statusCode === 404 || statusCode === 410) await prisma.pushSubscription.delete({ where: { id: subscription.id } });
-    }
-  }));
+    })(),
+    (async () => {
+      const tokens = await prisma.fcmToken.findMany({
+        where: { userId: { in: userIds } },
+      });
+      const notificationByUser = new Map(
+        notifications.map((notification) => [notification.userId, notification]),
+      );
+      await sendFcmNotifications(
+        tokens.flatMap((token) => {
+          const notification = notificationByUser.get(token.userId);
+          if (!notification) return [];
+          return [
+            {
+              token: token.token,
+              title: notification.judul,
+              body: notification.pesan,
+              notificationId: notification.id,
+              destination: notification.tujuan,
+            },
+          ];
+        }),
+      );
+    })(),
+  ]);
 }
 
 export async function notifyAdminsFromCashier(judul: string, pesan: string, tujuan = '/laporan') {

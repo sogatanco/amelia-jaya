@@ -30,6 +30,7 @@ model User {
   bons     Bon[]
   notifications Notification[]
   pushSubscriptions PushSubscription[]
+  fcmTokens FcmToken[]
   outOfStockReports OutOfStock[]
   purchasedOutOfStock OutOfStock[] @relation("OutOfStockPurchasedBy")
 }
@@ -67,6 +68,16 @@ model PushSubscription {
   endpoint  String   @unique @db.VarChar(512)
   p256dh    String   @db.Text
   auth      String   @db.Text
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model FcmToken {
+  id        String   @id @default(cuid())
+  token     String   @unique @db.VarChar(512)
   createdAt DateTime @default(now())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
+import { isPushConfigured } from '../lib/push';
 import { requireAuth, requireRole } from '../middleware/auth';
+import { sendNotifications } from '../utils/notifications';
 
 export const notificationsRouter = Router();
 notificationsRouter.use(requireAuth);
@@ -14,16 +16,6 @@ notificationsRouter.get('/', async (req, res) => {
   });
   res.json(notifications.map((notification) => ({ ...notification, tujuan: notification.tujuan || '/laporan' })));
 });
-
-notificationsRouter.delete('/:id', requireRole('ADMIN'), async (req, res) => {
-  const deleted = await prisma.notification.deleteMany({
-    where: { id: req.params.id, userId: req.user!.id },
-  });
-  if (!deleted.count) return res.status(404).json({ message: 'Notifikasi tidak ditemukan' });
-  res.status(204).end();
-});
-import { isPushConfigured } from '../lib/push';
-import { sendNotifications } from '../utils/notifications';
 
 notificationsRouter.patch('/:id/read', async (req, res) => {
   const notification = await prisma.notification.updateMany({
@@ -41,6 +33,40 @@ notificationsRouter.get('/vapid-public-key', (_req, res) => {
 const subscriptionSchema = z.object({
   endpoint: z.string().url(),
   keys: z.object({ p256dh: z.string().min(1), auth: z.string().min(1) }),
+});
+
+const fcmTokenSchema = z.object({
+  token: z.string().trim().min(1).max(512),
+});
+
+notificationsRouter.post('/fcm-token', async (req, res) => {
+  const parsed = fcmTokenSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: 'Token FCM tidak valid' });
+
+  await prisma.fcmToken.upsert({
+    where: { token: parsed.data.token },
+    update: { userId: req.user!.id },
+    create: { token: parsed.data.token, userId: req.user!.id },
+  });
+  res.status(201).json({ ok: true });
+});
+
+notificationsRouter.delete('/fcm-token', async (req, res) => {
+  const parsed = fcmTokenSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: 'Token FCM tidak valid' });
+
+  await prisma.fcmToken.deleteMany({
+    where: { token: parsed.data.token, userId: req.user!.id },
+  });
+  res.status(204).end();
+});
+
+notificationsRouter.delete('/:id', requireRole('ADMIN'), async (req, res) => {
+  const deleted = await prisma.notification.deleteMany({
+    where: { id: req.params.id, userId: req.user!.id },
+  });
+  if (!deleted.count) return res.status(404).json({ message: 'Notifikasi tidak ditemukan' });
+  res.status(204).end();
 });
 
 notificationsRouter.post('/subscribe', async (req, res) => {

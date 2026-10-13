@@ -25,8 +25,127 @@ pembukuan omset harian, pengeluaran, dan tagihan Toko Kelontong Amelia Jaya.
 
 ```
 toko-amelia-jaya/
-├── server/   # REST API - Node.js + Express + TypeScript + Prisma
-└── client/   # Frontend PWA - React + Vite + TypeScript + Tailwind
+├── android/      # Project Android native untuk Flutter
+├── lib/          # Source code Flutter app
+├── test/         # Unit/widget test Flutter
+├── server/       # REST API - Node.js + Express + TypeScript + Prisma
+├── client/       # Frontend PWA - React + Vite + TypeScript + Tailwind
+├── pubspec.yaml  # Konfigurasi dependency Flutter
+├── .env          # Environment lokal (jika diperlukan)
+└── README.md     # Dokumentasi proyek
+```
+
+## Menjalankan Aplikasi Android (Flutter)
+
+Project ini juga bisa dijalankan langsung sebagai aplikasi Android native via Flutter.
+Berikut langkah-langkah paling umum untuk menjalankan aplikasi di emulator atau device.
+
+Aplikasi Flutter menggunakan API production `https://amelia-jaya.shop/api`, jadi
+koneksi internet dan server API harus aktif. Layar native menyediakan login,
+dashboard, input omset/pengeluaran, foto bon dengan OCR, pembayaran tagihan,
+laporan admin, pengelolaan pengguna, notifikasi, dan laporan barang kosong.
+Alamat API dapat diubah di `lib/app_api.dart`.
+
+### 1. Install kebutuhan
+
+Pastikan di komputer Anda sudah terpasang:
+
+- Flutter SDK (versi stabil terbaru)
+- Android Studio
+- Android SDK + platform-tools
+- Java SDK yang didukung Flutter
+
+Cek instalasi:
+
+```powershell
+C:\Users\PC\flutter\bin\flutter.bat --version
+C:\Users\PC\flutter\bin\flutter.bat doctor
+```
+
+Jika Android license belum disetujui, jalankan:
+
+```powershell
+C:\Users\PC\flutter\bin\flutter.bat doctor --android-licenses
+```
+
+### 2. Masuk ke folder project
+
+```powershell
+cd C:\Users\PC\Documents\toko-amelia-jaya
+```
+
+### 3. Install dependency
+
+```powershell
+C:\Users\PC\flutter\bin\flutter.bat pub get
+```
+
+### 4. Jalankan di emulator / device
+
+Pastikan emulator Android sudah aktif, atau HP Android sudah terhubung via USB dengan USB debugging aktif.
+
+```powershell
+C:\Users\PC\flutter\bin\flutter.bat run
+```
+
+Jika ingin memilih device tertentu:
+
+```powershell
+C:\Users\PC\flutter\bin\flutter.bat devices
+C:\Users\PC\flutter\bin\flutter.bat run -d <device-id>
+```
+
+### 5. Build APK untuk instalasi manual
+
+Membuat file APK debug:
+
+```powershell
+C:\Users\PC\flutter\bin\flutter.bat build apk --debug
+```
+
+APK akan berada di folder:
+
+```text
+build\app\outputs\flutter-apk\app-debug.apk
+```
+
+Install APK ke device Android:
+
+```powershell
+adb install build\app\outputs\flutter-apk\app-debug.apk
+```
+
+Catatan: untuk keperluan release, gunakan:
+
+```powershell
+C:\Users\PC\flutter\bin\flutter.bat build apk --release
+```
+
+### 6. Mengaktifkan notifikasi di aplikasi Flutter
+
+Jalankan migrasi server agar token perangkat dapat disimpan (`npx prisma migrate deploy`),
+konfigurasikan Firebase Admin SDK seperti di bagian deployment, lalu build dan install
+APK terbaru. Login, buka halaman **Notifikasi**, tekan **Aktifkan**, dan izinkan
+notifikasi Android. Token FCM perangkat akan didaftarkan ke akun yang sedang login.
+
+Notifikasi aktivitas kasir yang dikirim web sebelumnya (omset, pengeluaran, bon, dan
+barang kosong) sekarang dikirim ke akun pemilik/admin yang aktif melalui FCM dan tetap
+tersimpan di inbox. Web Push untuk browser tetap berjalan. Notifikasi perangkat bisa
+diterima saat aplikasi terbuka maupun di latar belakang/ditutup; mengetuknya membuka
+halaman tujuan yang sama dan menandai notifikasi sebagai sudah dibaca.
+
+### 7. Jika app tidak terbuka / gagal build
+
+- Pastikan Android SDK terinstall dengan benar
+- Pastikan emulator atau device aktif
+- Jalankan `flutter doctor` untuk melihat masalah yang tersisa
+- Jika perlu, set `ANDROID_HOME` dan `JAVA_HOME` sesuai instalasi komputer Anda
+
+Contoh:
+
+```powershell
+$env:ANDROID_HOME = "C:\Users\PC\AppData\Local\Android\Sdk"
+$env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-17\"
 ```
 
 ## Teknologi & Alasan Pemilihan
@@ -144,8 +263,10 @@ Pemeriksaan API pada 7 Oktober 2026 masih menunjukkan CORS mengizinkan alamat
 IP lama, jadi pengaturan production ini perlu diterapkan sebelum aplikasi
 native dapat memakai API.
 
-Notifikasi dalam aplikasi tetap tersedia. Registrasi Web Push perangkat hanya
-tersedia untuk browser/PWA; push native FCM/APNs belum dikonfigurasi.
+Web Push browser/PWA tetap didukung. Aplikasi Android Flutter kini menggunakan FCM;
+server memerlukan migrasi token perangkat dan kredensial Firebase Admin SDK seperti
+dijelaskan pada panduan backend di bawah. Untuk iOS, konfigurasi APNs terpisah masih
+diperlukan.
 
 ## Install di Hosting / Shared Hosting
 
@@ -192,7 +313,17 @@ JWT_SECRET="buat-string-random-yang-panjang-dan-aman"
 CORS_ORIGIN="https://domain-anda.com"
 UPLOAD_DIR="uploads"
 PORT=4000
+FIREBASE_PROJECT_ID="amelia-jaya"
+FIREBASE_ADMIN_CREDENTIALS="/path/aman/firebase-admin-service-account.json"
 ```
+
+FCM membutuhkan service account **Firebase Admin SDK** dari project `amelia-jaya`
+dengan izin mengirim pesan (Firebase Cloud Messaging API). Simpan file JSON di luar
+repository dan atur `FIREBASE_ADMIN_CREDENTIALS` ke lokasi file pada server; jangan
+commit atau mengirim file/isi credential ke chat. Alternatifnya, gunakan
+`FIREBASE_SERVICE_ACCOUNT_JSON` sebagai secret environment atau aktifkan Application
+Default Credentials pada hosting dan set
+`FIREBASE_USE_APPLICATION_DEFAULT_CREDENTIALS=true`.
 
 Jika frontend dan API berada di domain yang sama, gunakan:
 
@@ -809,9 +940,12 @@ JWT_EXPIRES_IN="7d"
 CORS_ORIGIN="https://domain-anda.com"
 UPLOAD_DIR="uploads"
 OCR_PROVIDER="tesseract"
+FIREBASE_PROJECT_ID="amelia-jaya"
+FIREBASE_ADMIN_CREDENTIALS="/path/aman/firebase-admin-service-account.json"
 ```
 
-Jangan commit `.env` atau file service account Google Vision ke GitHub.
+Jangan commit `.env`, file service account Google Vision, atau file service account
+Firebase Admin SDK ke GitHub. Simpan service account Firebase di luar repository.
 
 ### 4. Install, migration, dan build
 
@@ -825,6 +959,10 @@ npm run build
 mkdir -p uploads
 chmod 755 uploads
 ```
+
+Migrasi `FcmToken` di atas diperlukan agar perangkat pemilik/admin menerima notifikasi
+FCM. Firebase Admin SDK juga harus memiliki izin Firebase Cloud Messaging pada project
+yang sama dengan aplikasi Android.
 
 Uji backend:
 
@@ -917,7 +1055,7 @@ server {
   location / {
     try_files $uri $uri/ /index.html;
   }
-}  
+}
 ```
 
 Aktifkan dan tes konfigurasi:

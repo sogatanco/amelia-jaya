@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "931373395111",
+    "project_id": "amelia-jaya",
+    "storage_bucket": "amelia-jaya.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:931373395111:android:ca9d4f8eef41c52da6ff82",
+        "android_client_info": {
+          "package_name": "com.ameliajaya.amelia_jaya_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDbXO-5zInCkhZ6beiHhZKzyWTt2_FC1wY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

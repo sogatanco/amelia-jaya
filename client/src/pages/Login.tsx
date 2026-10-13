@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { isAxiosError } from 'axios';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
@@ -17,8 +18,18 @@ export default function Login() {
     try {
       await login(username, password);
       navigate('/input-harian');
-    } catch {
-      setError('Username atau password salah');
+    } catch (error) {
+      if (isAxiosError<{ message?: string }>(error)) {
+        if (error.response?.status === 401) {
+          setError('Username atau password salah');
+        } else if (error.response) {
+          setError(error.response.data?.message || `Login gagal (HTTP ${error.response.status})`);
+        } else {
+          setError('Tidak dapat terhubung ke server. Periksa koneksi internet lalu coba lagi.');
+        }
+      } else {
+        setError('Terjadi kesalahan saat login. Silakan coba lagi.');
+      }
     } finally {
       setLoading(false);
     }
