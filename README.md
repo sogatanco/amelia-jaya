@@ -178,7 +178,8 @@ Release, bukan hanya file `.exe`.
 
 Build iOS memerlukan macOS/Xcode dan tidak dapat dibuat sebagai binary iOS di Windows.
 Repository menyediakan workflow `ios-sideloadly` pada `codemagic.yaml`, yang menghasilkan
-IPA unsigned:
+IPA unsigned. Plugin iOS diintegrasikan melalui Swift Package Manager, jadi workflow ini
+tidak memakai CocoaPods:
 
 1. Push repository ke GitHub dan hubungkan repository di Codemagic.
 2. Jalankan workflow **iOS IPA for Sideloadly** pada branch berisi kode terbaru.
