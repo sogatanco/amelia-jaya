@@ -56,19 +56,16 @@ class NotificationService {
       _handleFirebaseTap,
       onError: (Object error) => onError?.call(error),
     );
-    _tokenSubscription = _messaging.onTokenRefresh.listen(
-      (token) {
-        final userId = _userId;
-        if (userId != null) {
-          unawaited(
-            _registerToken(userId, token).catchError((Object error) {
-              onError?.call(error);
-            }),
-          );
-        }
-      },
-      onError: (Object error) => onError?.call(error),
-    );
+    _tokenSubscription = _messaging.onTokenRefresh.listen((token) {
+      final userId = _userId;
+      if (userId != null) {
+        unawaited(
+          _registerToken(userId, token).catchError((Object error) {
+            onError?.call(error);
+          }),
+        );
+      }
+    }, onError: (Object error) => onError?.call(error));
     _initialized = true;
   }
 
@@ -98,6 +95,18 @@ class NotificationService {
       if (token != null) await _registerToken(userId, token);
     }
     return granted;
+  }
+
+  static Future<Map<String, dynamic>> getDeliveryStatus() async {
+    final token = await _messaging.getToken();
+    final userId = _userId;
+    if (token != null && userId != null) {
+      await _registerToken(userId, token);
+    }
+    return ApiClient.post(
+      '/notifications/fcm-status',
+      body: {if (token != null) 'token': token},
+    );
   }
 
   static Future<void> start(String userId) async {

@@ -127,6 +127,9 @@ Jalankan migrasi server agar token perangkat dapat disimpan (`npx prisma migrate
 konfigurasikan Firebase Admin SDK seperti di bagian deployment, lalu build dan install
 APK terbaru. Login, buka halaman **Notifikasi**, tekan **Aktifkan**, dan izinkan
 notifikasi Android. Token FCM perangkat akan didaftarkan ke akun yang sedang login.
+Halaman Notifikasi menampilkan status izin Android, pendaftaran token perangkat, dan
+konfigurasi pengiriman FCM pada server; gunakan tombol muat ulang jika status baru saja
+diubah.
 
 Notifikasi aktivitas kasir yang dikirim web sebelumnya (omset, pengeluaran, bon, dan
 barang kosong) sekarang dikirim ke akun pemilik/admin yang aktif melalui FCM dan tetap

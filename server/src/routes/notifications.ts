@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
+import { isFcmConfigured } from '../lib/fcm';
 import { isPushConfigured } from '../lib/push';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { sendNotifications } from '../utils/notifications';
@@ -37,6 +38,33 @@ const subscriptionSchema = z.object({
 
 const fcmTokenSchema = z.object({
   token: z.string().trim().min(1).max(512),
+});
+
+const fcmStatusSchema = z.object({
+  token: z.string().trim().min(1).max(512).optional(),
+});
+
+notificationsRouter.post('/fcm-status', async (req, res) => {
+  const parsed = fcmStatusSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: 'Token FCM tidak valid' });
+
+  const [deviceCount, currentToken] = await Promise.all([
+    prisma.fcmToken.count({ where: { userId: req.user!.id } }),
+    parsed.data.token
+      ? prisma.fcmToken.findUnique({
+          where: { token: parsed.data.token },
+          select: { userId: true },
+        })
+      : Promise.resolve(null),
+  ]);
+
+  res.json({
+    serverConfigured: isFcmConfigured(),
+    registeredDevices: deviceCount,
+    thisDeviceRegistered: Boolean(
+      currentToken && currentToken.userId === req.user!.id,
+    ),
+  });
 });
 
 notificationsRouter.post('/fcm-token', async (req, res) => {

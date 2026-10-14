@@ -2699,6 +2699,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
   List<Map<String, dynamic>> _users = [];
   bool _permissionGranted = false;
   bool _permissionLoading = true;
+  bool _statusLoading = true;
+  Map<String, dynamic>? _deliveryStatus;
+  String? _statusError;
 
   @override
   void initState() {
@@ -2706,6 +2709,24 @@ class _NotificationsPageState extends State<NotificationsPage> {
     _load();
     if (widget.isAdmin) _loadUsers();
     _checkNotificationPermission();
+    _loadDeliveryStatus();
+  }
+
+  Future<void> _loadDeliveryStatus() async {
+    if (mounted) {
+      setState(() {
+        _statusLoading = true;
+        _statusError = null;
+      });
+    }
+    try {
+      final status = await NotificationService.getDeliveryStatus();
+      if (mounted) setState(() => _deliveryStatus = status);
+    } catch (e) {
+      if (mounted) setState(() => _statusError = _errorText(e));
+    } finally {
+      if (mounted) setState(() => _statusLoading = false);
+    }
   }
 
   Future<void> _loadUsers() async {
@@ -2838,6 +2859,36 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
   }
 
+  Widget _notificationStatusRow(String label, bool? ready) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(
+      children: [
+        if (ready == null)
+          const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        else
+          Icon(
+            ready ? Icons.check_circle_rounded : Icons.error_rounded,
+            size: 17,
+            color: ready ? _brand : const Color(0xFFCE7B20),
+          ),
+        const SizedBox(width: 8),
+        Expanded(child: Text(label, style: const TextStyle(fontSize: 13))),
+        Text(
+          ready == null ? 'Memeriksa' : ready ? 'Siap' : 'Belum',
+          style: TextStyle(
+            color: ready == true ? _brand : const Color(0xFFCE7B20),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) => RefreshIndicator(
     onRefresh: _load,
@@ -2858,36 +2909,85 @@ class _NotificationsPageState extends State<NotificationsPage> {
             const SizedBox(height: 10),
           ],
           _SectionCard(
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  _permissionGranted
-                      ? Icons.notifications_active_rounded
-                      : Icons.notifications_off_outlined,
-                  color: _permissionGranted ? _brand : const Color(0xFFCE7B20),
+                Row(
+                  children: [
+                    Icon(
+                      _permissionGranted
+                          ? Icons.notifications_active_rounded
+                          : Icons.notifications_off_outlined,
+                      color: _permissionGranted
+                          ? _brand
+                          : const Color(0xFFCE7B20),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Status push notifikasi',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Periksa lagi',
+                      onPressed: _statusLoading ? null : _loadDeliveryStatus,
+                      icon: const Icon(Icons.refresh_rounded),
+                    ),
+                    if (!_permissionGranted)
+                      TextButton(
+                        onPressed: _permissionLoading
+                            ? null
+                            : _enableDeviceNotifications,
+                        child: _permissionLoading
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text('Aktifkan'),
+                      ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    _permissionGranted
-                        ? 'Notifikasi FCM aktif di perangkat ini, termasuk saat aplikasi di latar belakang.'
-                        : 'Aktifkan notifikasi agar perangkat menerima pemberitahuan FCM, termasuk saat aplikasi ditutup.',
-                    style: const TextStyle(fontSize: 13, height: 1.4),
-                  ),
+                const SizedBox(height: 8),
+                _notificationStatusRow(
+                  'Izin notifikasi Android',
+                  _permissionLoading ? null : _permissionGranted,
                 ),
-                if (!_permissionGranted)
-                  TextButton(
-                    onPressed: _permissionLoading
-                        ? null
-                        : _enableDeviceNotifications,
-                    child: _permissionLoading
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Aktifkan'),
+                _notificationStatusRow(
+                  'Token perangkat tersimpan di server',
+                  _statusLoading
+                      ? null
+                      : _deliveryStatus?['thisDeviceRegistered'] == true,
+                ),
+                _notificationStatusRow(
+                  'Pengiriman FCM server siap',
+                  _statusLoading
+                      ? null
+                      : _deliveryStatus?['serverConfigured'] == true,
+                ),
+                if (_statusError != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Gagal memeriksa status server: $_statusError',
+                    style: const TextStyle(
+                      color: Color(0xFFB42318),
+                      fontSize: 12,
+                    ),
                   ),
+                ],
+                if (_deliveryStatus != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Perangkat terdaftar pada akun ini: ${_deliveryStatus!['registeredDevices'] ?? 0}',
+                    style: const TextStyle(
+                      color: Color(0xFF66736A),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

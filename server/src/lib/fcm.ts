@@ -35,6 +35,14 @@ function getFcmMessaging() {
   return getMessaging();
 }
 
+export function isFcmConfigured() {
+  try {
+    return getFcmMessaging() !== null;
+  } catch {
+    return false;
+  }
+}
+
 interface FcmDelivery {
   token: string;
   title: string;
