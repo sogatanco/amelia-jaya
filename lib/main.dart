@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -21,7 +22,11 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  if (!kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS)) {
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  }
   await initializeDateFormatting('id_ID');
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -310,14 +315,14 @@ class _LoginPageState extends State<LoginPage> {
                                 end: Alignment.bottomRight,
                               ),
                             ),
-                            child: const Column(
+                            child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(
-                                  Icons.storefront_rounded,
-                                  color: Colors.white,
-                                  size: 42,
+                                Image.asset(
+                                  'assets/branding/amelia-jaya-logo.png',
+                                  width: 88,
+                                  height: 88,
                                 ),
                                 SizedBox(height: 26),
                                 Text(
@@ -350,13 +355,12 @@ class _LoginPageState extends State<LoginPage> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 if (!wide) ...[
-                                  const CircleAvatar(
-                                    radius: 28,
-                                    backgroundColor: Color(0xFFE8F5EC),
-                                    child: Icon(
-                                      Icons.storefront_rounded,
-                                      color: _brand,
-                                      size: 30,
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(18),
+                                    child: Image.asset(
+                                      'assets/branding/amelia-jaya-logo.png',
+                                      width: 62,
+                                      height: 62,
                                     ),
                                   ),
                                   const SizedBox(height: 18),

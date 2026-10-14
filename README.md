@@ -151,6 +151,45 @@ $env:ANDROID_HOME = "C:\Users\PC\AppData\Local\Android\Sdk"
 $env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-17\"
 ```
 
+## Build Flutter Web dan Windows
+
+Logo aplikasi menggunakan monogram AJ hijau-emas. Sumber vector ada di
+`assets/branding/amelia-jaya-logo.svg`; icon platform dihasilkan dari PNG branding
+melalui konfigurasi `flutter_launcher_icons`.
+
+Build Web release:
+
+```powershell
+C:\Users\PC\flutter\bin\flutter.bat build web --release
+```
+
+Hasilnya berada di `build\web`. Build Windows release memerlukan Windows, Visual Studio
+2022 dengan workload **Desktop development with C++**, CMake, dan Windows Developer Mode
+aktif agar Flutter dapat membuat symlink plugin:
+
+```powershell
+C:\Users\PC\flutter\bin\flutter.bat build windows --release
+```
+
+Hasil Windows berada di `build\windows\x64\runner\Release`. Distribusikan seluruh folder
+Release, bukan hanya file `.exe`.
+
+## Build iOS via Codemagic dan Sideloadly
+
+Build iOS memerlukan macOS/Xcode dan tidak dapat dibuat sebagai binary iOS di Windows.
+Repository menyediakan workflow `ios-sideloadly` pada `codemagic.yaml`, yang menghasilkan
+IPA unsigned:
+
+1. Push repository ke GitHub dan hubungkan repository di Codemagic.
+2. Jalankan workflow **iOS IPA for Sideloadly** pada branch berisi kode terbaru.
+3. Unduh artifact `Amelia-Jaya-unsigned.ipa`.
+4. Buka IPA melalui Sideloadly di Windows dan signing/install sesuai Apple ID dan device.
+
+Bundle ID iOS disamakan dengan aplikasi Firebase yang terkonfigurasi (`toko.amelia.app`).
+Push notification iOS membutuhkan capability Push Notifications pada provisioning
+profile Apple Developer serta APNs authentication key di Firebase Console. IPA unsigned
+untuk Sideloadly tidak menjamin entitlement push bila profile signing tidak memilikinya.
+
 ## Teknologi & Alasan Pemilihan
 
 | Bagian    | Pilihan                          | Alasan |

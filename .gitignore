@@ -32,6 +32,8 @@ Thumbs.db
 *.local
 google-vision-service-account.json
 *service-account*.json
+*firebase-private-key*.json
+*firebase-admin*.json
 cloudflare-*.json
 clouflare-*.json
 
@@ -46,3 +48,5 @@ clouflare-*.json
 !/server/uploads/.gitkeep
 /server/*.traineddata
 /PHOTO-*.jpg
+
+server/firebase-private-key.json

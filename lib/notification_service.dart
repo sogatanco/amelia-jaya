@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/foundation.dart';
 
 import 'app_api.dart';
 
@@ -19,16 +20,25 @@ class NotificationService {
   static String? _userId;
   static bool _initialized = false;
   static void Function(Object error)? onError;
+  static bool get _supportsNativePush =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
   static Future<void> initialize({
     required Future<void> Function(String payload) onSelect,
   }) async {
     _onSelect = onSelect;
     if (_initialized) return;
+    if (!_supportsNativePush) {
+      _initialized = true;
+      return;
+    }
 
     await _plugin.initialize(
       settings: const InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        iOS: DarwinInitializationSettings(),
       ),
       onDidReceiveNotificationResponse: (response) {
         final payload = response.payload;
@@ -70,6 +80,7 @@ class NotificationService {
   }
 
   static Future<String?> get launchPayload async {
+    if (!_supportsNativePush) return null;
     final localDetails = await _plugin.getNotificationAppLaunchDetails();
     if (localDetails?.didNotificationLaunchApp == true) {
       final payload = localDetails?.notificationResponse?.payload;
@@ -82,11 +93,13 @@ class NotificationService {
   }
 
   static Future<bool> get notificationsEnabled async {
+    if (!_supportsNativePush) return false;
     final settings = await _messaging.getNotificationSettings();
     return _isAuthorized(settings.authorizationStatus);
   }
 
   static Future<bool> requestPermission() async {
+    if (!_supportsNativePush) return false;
     final settings = await _messaging.requestPermission();
     final granted = _isAuthorized(settings.authorizationStatus);
     final userId = _userId;
@@ -98,6 +111,14 @@ class NotificationService {
   }
 
   static Future<Map<String, dynamic>> getDeliveryStatus() async {
+    if (!_supportsNativePush) {
+      return {
+        'serverConfigured': false,
+        'registeredDevices': 0,
+        'thisDeviceRegistered': false,
+        'supported': false,
+      };
+    }
     final token = await _messaging.getToken();
     final userId = _userId;
     if (token != null && userId != null) {
@@ -105,12 +126,12 @@ class NotificationService {
     }
     return ApiClient.post(
       '/notifications/fcm-status',
-      body: {if (token != null) 'token': token},
+      body: token == null ? <String, dynamic>{} : {'token': token},
     );
   }
 
   static Future<void> start(String userId) async {
-    if (!_initialized || _userId == userId) return;
+    if (!_supportsNativePush || !_initialized || _userId == userId) return;
     _userId = userId;
     final settings = await _messaging.getNotificationSettings();
     if (!_isAuthorized(settings.authorizationStatus)) return;
@@ -120,7 +141,7 @@ class NotificationService {
 
   static Future<void> unregisterDevice() async {
     final userId = _userId;
-    if (userId == null) return;
+    if (userId == null || !_supportsNativePush) return;
     try {
       final token = await _messaging.getToken();
       if (token != null) {
@@ -180,6 +201,11 @@ class NotificationService {
             importance: Importance.high,
             priority: Priority.high,
             icon: '@mipmap/ic_launcher',
+          ),
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
           ),
         ),
         payload: jsonEncode({
