@@ -2772,7 +2772,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
         _permissionGranted = granted;
         _permissionLoading = false;
         if (!granted) {
-          _error = 'Izin notifikasi belum diberikan. Aktifkan melalui Pengaturan Android.';
+          _error =
+              'Izin notifikasi belum diberikan. Aktifkan Amelia Jaya melalui '
+              'Pengaturan perangkat > Notifikasi.';
         }
       });
     } catch (e) {
@@ -2953,7 +2955,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 ),
                 const SizedBox(height: 8),
                 _notificationStatusRow(
-                  'Izin notifikasi Android',
+                  'Izin notifikasi perangkat',
                   _permissionLoading ? null : _permissionGranted,
                 ),
                 _notificationStatusRow(
@@ -2987,6 +2989,27 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       fontSize: 12,
                     ),
                   ),
+                  if (_deliveryStatus!['deviceRegistrationError'] is String) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      '${_deliveryStatus!['deviceRegistrationError']}',
+                      style: const TextStyle(
+                        color: Color(0xFFB42318),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                  if (_deliveryStatus!['serverConfigured'] != true) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Server belum memiliki kredensial Firebase Admin SDK. '
+                      'Minta admin server mengatur kredensial Firebase project Amelia Jaya.',
+                      style: TextStyle(
+                        color: Color(0xFFB42318),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ],
               ],
             ),

@@ -125,11 +125,19 @@ C:\Users\PC\flutter\bin\flutter.bat build apk --release
 
 Jalankan migrasi server agar token perangkat dapat disimpan (`npx prisma migrate deploy`),
 konfigurasikan Firebase Admin SDK seperti di bagian deployment, lalu build dan install
-APK terbaru. Login, buka halaman **Notifikasi**, tekan **Aktifkan**, dan izinkan
-notifikasi Android. Token FCM perangkat akan didaftarkan ke akun yang sedang login.
-Halaman Notifikasi menampilkan status izin Android, pendaftaran token perangkat, dan
-konfigurasi pengiriman FCM pada server; gunakan tombol muat ulang jika status baru saja
-diubah.
+aplikasi terbaru. Setelah login, izinkan notifikasi saat diminta. Jika belum aktif, buka
+halaman **Notifikasi** dan tekan **Aktifkan**. Token FCM perangkat akan didaftarkan ke
+akun yang sedang login. Halaman Notifikasi menampilkan status izin perangkat,
+pendaftaran token, dan konfigurasi pengiriman FCM pada server; gunakan tombol muat ulang
+jika status baru saja diubah.
+
+Untuk iOS, Firebase project juga harus memiliki APNs authentication key dan aplikasi
+harus ditandatangani dengan provisioning profile yang mengaktifkan capability **Push
+Notifications**. IPA unsigned yang ditandatangani dengan profil tanpa entitlement APNs
+tidak dapat menerima push, meskipun server FCM sudah dikonfigurasi.
+
+Foto nota dari iPhone (termasuk HEIC/HEIF) diterima oleh API lalu dikonversi ke JPEG
+sebelum OCR dan disimpan.
 
 Notifikasi aktivitas kasir yang dikirim web sebelumnya (omset, pengeluaran, bon, dan
 barang kosong) sekarang dikirim ke akun pemilik/admin yang aktif melalui FCM dan tetap

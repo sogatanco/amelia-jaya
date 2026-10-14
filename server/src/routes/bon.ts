@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { z } from 'zod';
 import dayjs from 'dayjs';
+import sharp from 'sharp';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { normalizeCategoryLabel } from '../utils/category';
@@ -30,12 +31,6 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: { fileSize: 8 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (!/^image\/(jpe?g|png|webp|heic|heif)$/.test(file.mimetype)) {
-      return cb(new Error('File harus berupa foto (jpg/png/webp)'));
-    }
-    cb(null, true);
-  },
 });
 
 const uploadSchema = z.object({
@@ -64,10 +59,47 @@ bonRouter.post('/upload', upload.single('file'), async (req, res) => {
   }
   const parsed = uploadSchema.safeParse(req.body);
   if (!parsed.success) {
+    await fs.promises.unlink(req.file.path);
     return res.status(400).json({ message: 'Tipe nota (CASH/CREDIT/TITIP) wajib diisi' });
   }
 
-  const ocr = await readBonImage(req.file.path);
+  let imageFormat: string | undefined;
+  try {
+    imageFormat = (await sharp(req.file.path).metadata()).format;
+  } catch (error) {
+    console.warn('Uploaded receipt is not a readable image.', error);
+    await fs.promises.unlink(req.file.path);
+    return res.status(400).json({
+      message: 'File tidak dapat dibaca sebagai foto. Pilih JPG, PNG, WebP, atau foto HEIC dari iPhone.',
+    });
+  }
+  if (!['jpeg', 'png', 'webp', 'heif'].includes(imageFormat ?? '')) {
+    await fs.promises.unlink(req.file.path);
+    return res.status(400).json({
+      message: 'Format foto tidak didukung. Pilih JPG, PNG, WebP, atau foto HEIC dari iPhone.',
+    });
+  }
+
+  const normalizedImagePath = `${req.file.path}.normalized.jpg`;
+  try {
+    await sharp(req.file.path)
+      .rotate()
+      .flatten({ background: '#ffffff' })
+      .jpeg({ quality: 90 })
+      .toFile(normalizedImagePath);
+  } catch (error) {
+    console.error('Failed to convert uploaded receipt to JPEG.', error);
+    await fs.promises.rm(req.file.path, { force: true });
+    await fs.promises.rm(normalizedImagePath, { force: true });
+    return res.status(400).json({
+      message: 'Foto tidak dapat diproses. Coba pilih foto lain atau ambil ulang dari kamera.',
+    });
+  }
+  await fs.promises.unlink(req.file.path);
+  const imagePath = req.file.path.replace(/\.[^/.]+$/, '-normalized.jpg');
+  await fs.promises.rename(normalizedImagePath, imagePath);
+
+  const ocr = await readBonImage(imagePath);
 
   const bon = await prisma.bon.create({
     data: {
@@ -76,7 +108,7 @@ bonRouter.post('/upload', upload.single('file'), async (req, res) => {
       jumlah: ocr.jumlah,
       supplier: ocr.supplier,
       kategori: null,
-      imagePath: path.relative(process.cwd(), req.file.path),
+      imagePath: path.relative(process.cwd(), imagePath),
       ocrText: ocr.text,
       ocrConfidence: ocr.confidence,
       status: 'DIPROSES',

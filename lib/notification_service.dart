@@ -104,8 +104,7 @@ class NotificationService {
     final granted = _isAuthorized(settings.authorizationStatus);
     final userId = _userId;
     if (granted && userId != null) {
-      final token = await _messaging.getToken();
-      if (token != null) await _registerToken(userId, token);
+      await _registerCurrentDevice(userId);
     }
     return granted;
   }
@@ -119,24 +118,41 @@ class NotificationService {
         'supported': false,
       };
     }
-    final token = await _messaging.getToken();
     final userId = _userId;
-    if (token != null && userId != null) {
-      await _registerToken(userId, token);
+    String? token;
+    String? deviceRegistrationError;
+    if (userId != null) {
+      try {
+        final settings = await _messaging.getNotificationSettings();
+        if (_isAuthorized(settings.authorizationStatus)) {
+          token = await _registerCurrentDevice(userId);
+        } else {
+          deviceRegistrationError =
+              'Izinkan notifikasi Amelia Jaya agar token perangkat dapat didaftarkan.';
+        }
+      } catch (error) {
+        deviceRegistrationError = error.toString();
+      }
     }
-    return ApiClient.post(
+    final status = await ApiClient.post(
       '/notifications/fcm-status',
       body: token == null ? <String, dynamic>{} : {'token': token},
     );
+    return {
+      ...status,
+      'deviceRegistrationError': deviceRegistrationError,
+    };
   }
 
   static Future<void> start(String userId) async {
     if (!_supportsNativePush || !_initialized || _userId == userId) return;
     _userId = userId;
-    final settings = await _messaging.getNotificationSettings();
+    var settings = await _messaging.getNotificationSettings();
+    if (settings.authorizationStatus == AuthorizationStatus.notDetermined) {
+      settings = await _messaging.requestPermission();
+    }
     if (!_isAuthorized(settings.authorizationStatus)) return;
-    final token = await _messaging.getToken();
-    if (token != null) await _registerToken(userId, token);
+    await _registerCurrentDevice(userId);
   }
 
   static Future<void> unregisterDevice() async {
@@ -180,6 +196,31 @@ class NotificationService {
   static Future<void> _registerToken(String userId, String token) async {
     if (_userId != userId) return;
     await ApiClient.post('/notifications/fcm-token', body: {'token': token});
+  }
+
+  static Future<String> _registerCurrentDevice(String userId) async {
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      String? apnsToken;
+      for (var attempt = 0; attempt < 10 && apnsToken == null; attempt++) {
+        apnsToken = await _messaging.getAPNSToken();
+        if (apnsToken == null) {
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        }
+      }
+      if (apnsToken == null) {
+        throw const ApiException(
+          'Token APNs iPhone belum tersedia. Pastikan aplikasi ditandatangani '
+          'dengan provisioning profile Apple yang mengaktifkan Push Notifications.',
+        );
+      }
+    }
+
+    final token = await _messaging.getToken();
+    if (token == null || token.isEmpty) {
+      throw const ApiException('Firebase belum memberikan token untuk perangkat ini.');
+    }
+    await _registerToken(userId, token);
+    return token;
   }
 
   static void _showForegroundNotification(RemoteMessage message) {
