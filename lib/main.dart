@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'app_api.dart';
@@ -186,6 +187,13 @@ class _AmeliaJayaAppState extends State<AmeliaJayaApp>
       scaffoldMessengerKey: _messengerKey,
       title: 'Amelia Jaya',
       debugShowCheckedModeBanner: false,
+      locale: const Locale('id'),
+      supportedLocales: const [Locale('id'), Locale('en', 'US')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: _brand),
