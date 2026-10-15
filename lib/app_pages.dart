@@ -749,15 +749,34 @@ class _DailyPageState extends State<DailyPage> {
   }
 
   Future<void> _chooseDate() async {
-    final chosen = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime.now().subtract(const Duration(days: 60)),
-      lastDate: DateTime.now(),
-      locale: const Locale('id'),
-    );
-    if (chosen == null) return;
-    setState(() => _selectedDate = chosen);
+    final lastDate = DateUtils.dateOnly(DateTime.now());
+    final firstDate = lastDate.subtract(const Duration(days: 60));
+    final selectedDate = DateUtils.dateOnly(_selectedDate);
+    final initialDate = selectedDate.isBefore(firstDate)
+        ? firstDate
+        : selectedDate.isAfter(lastDate)
+        ? lastDate
+        : selectedDate;
+
+    DateTime? chosen;
+    try {
+      chosen = await showDatePicker(
+        context: context,
+        initialDate: initialDate,
+        firstDate: firstDate,
+        lastDate: lastDate,
+        locale: const Locale('id'),
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = 'Tidak dapat membuka pilihan tanggal: $error');
+      }
+      return;
+    }
+    final selected = chosen;
+    if (selected == null) return;
+    if (!mounted) return;
+    setState(() => _selectedDate = selected);
     await _run(_loadForDate);
   }
 
