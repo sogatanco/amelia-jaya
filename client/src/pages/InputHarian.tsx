@@ -47,6 +47,8 @@ function formatSumberDana(expense: Expense) {
 export default function InputHarian() {
   const [dates, setDates] = useState<DateItem[]>([]);
   const [tanggal, setTanggal] = useState('');
+  const [datesLoading, setDatesLoading] = useState(true);
+  const [datesError, setDatesError] = useState('');
   const [omset, setOmset] = useState('');
   const [sumberPemasukan, setSumberPemasukan] = useState<'KASIR' | 'QRIS'>('KASIR');
   const [closingEntries, setClosingEntries] = useState<ClosingEntry[]>([]);
@@ -70,11 +72,42 @@ export default function InputHarian() {
   });
 
   useEffect(() => {
-    api.get('/closings/dates').then((res) => {
-      setDates(res.data);
-      if (!tanggal && res.data.length) setTanggal(res.data[0].tanggal);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let active = true;
+    api
+      .get('/closings/dates')
+      .then((res) => {
+        const availableDates = (Array.isArray(res.data) ? res.data : []).filter(
+          (item: DateItem) =>
+            typeof item?.tanggal === 'string' && item.tanggal.trim() !== '',
+        );
+        if (availableDates.length === 0) {
+          throw new Error('Daftar tanggal transaksi kosong.');
+        }
+        if (!active) return;
+        setDates(availableDates);
+        setTanggal((current) =>
+          availableDates.some((item: DateItem) => item.tanggal === current)
+            ? current
+            : availableDates[0].tanggal,
+        );
+        setDatesError('');
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        const message = (
+          error as { response?: { data?: { message?: string } }; message?: string }
+        )?.response?.data?.message;
+        setDatesError(
+          message ??
+            'Daftar tanggal tidak dapat dimuat. Periksa koneksi lalu muat ulang halaman.',
+        );
+      })
+      .finally(() => {
+        if (active) setDatesLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -184,14 +217,24 @@ export default function InputHarian() {
           <select
             className="w-full border rounded-md px-3 py-2"
             value={tanggal}
+            disabled={datesLoading || dates.length === 0}
             onChange={(e) => setTanggal(e.target.value)}
           >
+            {datesLoading && <option value="">Memuat tanggal...</option>}
+            {!datesLoading && datesError && (
+              <option value="">Tanggal tidak tersedia</option>
+            )}
             {dates.map((d) => (
               <option key={d.tanggal} value={d.tanggal}>
                 {d.tanggal} {d.sudahDiinput ? '✓ sudah diinput' : '— belum diinput'}
               </option>
             ))}
           </select>
+          {datesError && (
+            <p role="alert" className="mt-1 text-xs text-red-600">
+              {datesError}
+            </p>
+          )}
         </div>
 
         <div>
