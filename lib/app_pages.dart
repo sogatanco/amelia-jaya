@@ -664,6 +664,7 @@ class _DailyPageState extends State<DailyPage> {
   final _sales = TextEditingController();
   final _note = TextEditingController();
   final _category = TextEditingController();
+  final _categoryFocusNode = FocusNode();
   final _expenseAmount = TextEditingController();
   final _expenseNote = TextEditingController();
   String? _error;
@@ -684,6 +685,7 @@ class _DailyPageState extends State<DailyPage> {
     _sales.dispose();
     _note.dispose();
     _category.dispose();
+    _categoryFocusNode.dispose();
     _expenseAmount.dispose();
     _expenseNote.dispose();
     super.dispose();
@@ -960,13 +962,52 @@ class _DailyPageState extends State<DailyPage> {
                     trailing: _money(expensesTotal),
                   ),
                   const SizedBox(height: 14),
-                  TextField(
-                    controller: _category,
-                    decoration: InputDecoration(
-                      labelText: 'Kategori pengeluaran',
-                      hintText: _categories.isEmpty
-                          ? 'Contoh: Belanja barang'
-                          : 'Ketik nama kategori',
+                  RawAutocomplete<String>(
+                    textEditingController: _category,
+                    focusNode: _categoryFocusNode,
+                    optionsBuilder: (textEditingValue) {
+                      final query = textEditingValue.text.trim().toLowerCase();
+                      return _categories.where(
+                        (category) =>
+                            query.isEmpty ||
+                            category.toLowerCase().contains(query),
+                      );
+                    },
+                    fieldViewBuilder:
+                        (context, controller, focusNode, onFieldSubmitted) =>
+                            TextField(
+                              controller: controller,
+                              focusNode: focusNode,
+                              onSubmitted: (_) => onFieldSubmitted(),
+                              decoration: InputDecoration(
+                                labelText: 'Kategori pengeluaran',
+                                hintText: _categories.isEmpty
+                                    ? 'Contoh: Belanja barang'
+                                    : 'Ketik nama kategori',
+                              ),
+                            ),
+                    optionsViewBuilder: (context, onSelected, options) => Align(
+                      alignment: Alignment.topLeft,
+                      child: Material(
+                        elevation: 4,
+                        borderRadius: BorderRadius.circular(12),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 200),
+                          child: ListView(
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            children: options
+                                .map(
+                                  (category) => ListTile(
+                                    dense: true,
+                                    title: Text(category),
+                                    onTap: () => onSelected(category),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -1029,14 +1070,28 @@ class _DailyPageState extends State<DailyPage> {
                         title: '${e['kategori'] ?? 'Pengeluaran'}',
                         subtitle:
                             '${e['sumberDana'] ?? 'LACI'}${(e['keterangan'] ?? '').toString().isNotEmpty ? ' · ${e['keterangan']}' : ''}',
-                        value: _money(e['jumlah']),
-                        trailing: IconButton(
-                          tooltip: 'Hapus pengeluaran',
-                          onPressed: () => _deleteExpense('${e['id']}'),
-                          icon: const Icon(
-                            Icons.delete_outline,
-                            color: Color(0xFFC43838),
-                          ),
+                        trailing: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8, right: 8),
+                              child: Text(
+                                _money(e['jumlah']),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Hapus pengeluaran',
+                              onPressed: () => _deleteExpense('${e['id']}'),
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: Color(0xFFC43838),
+                              ),
+                            ),
+                          ],
                         ),
                       );
                     }),
