@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
@@ -32,6 +33,41 @@ String _money(Object? value) {
     decimalDigits: 0,
   ).format(amount);
 }
+
+String _rupiahInputValue(num value) =>
+    NumberFormat.decimalPattern('id_ID').format(value);
+
+final _rupiahInputFormatter = TextInputFormatter.withFunction((
+  oldValue,
+  newValue,
+) {
+  final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+  if (digits.isEmpty) return const TextEditingValue();
+
+  final selectionOffset = newValue.selection.isValid
+      ? newValue.selection.extentOffset.clamp(0, newValue.text.length)
+      : newValue.text.length;
+  final digitsBeforeSelection = newValue.text
+      .substring(0, selectionOffset)
+      .replaceAll(RegExp(r'[^0-9]'), '')
+      .length;
+  final formatted = NumberFormat.decimalPattern('id_ID')
+      .format(int.parse(digits));
+  var formattedOffset = 0;
+  var formattedDigits = 0;
+  while (formattedOffset < formatted.length &&
+      formattedDigits < digitsBeforeSelection) {
+    if (RegExp(r'[0-9]').hasMatch(formatted[formattedOffset])) {
+      formattedDigits++;
+    }
+    formattedOffset++;
+  }
+
+  return TextEditingValue(
+    text: formatted,
+    selection: TextSelection.collapsed(offset: formattedOffset),
+  );
+});
 
 double _number(TextEditingController controller) =>
     double.tryParse(controller.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
@@ -1512,101 +1548,314 @@ class _BillsPageState extends State<BillsPage> {
 
   Future<void> _pay(Map<String, dynamic> bon) async {
     final amountController = TextEditingController();
-    var method = 'LACI';
+    final laciController = TextEditingController();
+    final cashflowController = TextEditingController();
+    final bankController = TextEditingController();
     final remaining =
         ((bon['jumlah'] as num? ?? 0) - (bon['paidAmount'] as num? ?? 0))
             .toDouble();
-    final suggestedAmount = bon['tipe'] == 'TITIP'
-        ? (bon['jumlah'] as num? ?? 0).toDouble()
-        : remaining;
+    final isTitip = bon['tipe'] == 'TITIP';
+    final grossAmount = (bon['jumlah'] as num? ?? 0).toDouble();
+    final paidAmount = (bon['paidAmount'] as num? ?? 0).toDouble();
+    final suggestedAmount = isTitip ? grossAmount : remaining;
+    amountController.text = _rupiahInputValue(suggestedAmount);
+    var mode = 'PENUH';
+    var method = 'LACI';
+    var paymentDate = DateUtils.dateOnly(DateTime.now());
+    var saving = false;
+    String? dialogError;
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(
-            bon['tipe'] == 'TITIP'
-                ? 'Selesaikan barang titip'
-                : 'Bayar tagihan',
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Sisa tagihan: ${_money(remaining)}'),
-              const SizedBox(height: 12),
-              TextField(
-                controller: amountController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: bon['tipe'] == 'TITIP'
-                      ? 'Jumlah akhir terjual'
-                      : 'Jumlah pembayaran',
-                  prefixText: 'Rp ',
-                  hintText: suggestedAmount.toStringAsFixed(0),
-                ),
-              ),
-              const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                initialValue: method,
-                decoration: const InputDecoration(labelText: 'Sumber dana'),
-                items: const [
-                  DropdownMenuItem(value: 'LACI', child: Text('Laci kasir')),
-                  DropdownMenuItem(value: 'CASHFLOW', child: Text('Cashflow')),
-                  DropdownMenuItem(
-                    value: 'BANK',
-                    child: Text('Bank / transfer'),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final enteredAmount = mode == 'PENUH'
+              ? suggestedAmount
+              : _number(amountController);
+          final totalPayment = isTitip
+              ? enteredAmount - paidAmount
+              : enteredAmount;
+          final mixedTotal =
+              _number(laciController) +
+              _number(cashflowController) +
+              _number(bankController);
+          final selectedPayment = method == 'CAMPUR'
+              ? mixedTotal
+              : totalPayment;
+          final expectedMixedTotal = totalPayment;
+          final mixedDifference = expectedMixedTotal - mixedTotal;
+          return AlertDialog(
+            title: Text(isTitip ? 'Selesaikan barang titip' : 'Bayar tagihan'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${bon['supplier'] ?? 'Tanpa nama supplier'} · '
+                    '${isTitip ? 'Sisa nilai' : 'Sisa tagihan'}: ${_money(remaining)}',
+                    style: const TextStyle(fontSize: 13, color: _muted),
                   ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: saving
+                        ? null
+                        : () async {
+                            final chosen = await showDatePicker(
+                              context: context,
+                              initialDate: paymentDate,
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime(2100),
+                              locale: const Locale('id'),
+                            );
+                            if (chosen != null) {
+                              setDialogState(
+                                () => paymentDate = DateUtils.dateOnly(chosen),
+                              );
+                            }
+                          },
+                    icon: const Icon(Icons.calendar_month_outlined),
+                    label: Text(
+                      'Tanggal: ${_dateLabel(_dateString(paymentDate))}',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Jenis pembayaran',
+                    style: TextStyle(fontSize: 13, color: _muted),
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      ChoiceChip(
+                        label: Text(isTitip ? 'Semua terjual' : 'Bayar penuh'),
+                        selected: mode == 'PENUH',
+                        onSelected: saving
+                            ? null
+                            : (_) => setDialogState(() {
+                                mode = 'PENUH';
+                                amountController.text = _rupiahInputValue(
+                                  suggestedAmount,
+                                );
+                              }),
+                      ),
+                      ChoiceChip(
+                        label: Text(
+                          isTitip ? 'Ada retur / tidak laku' : 'Bayar sebagian',
+                        ),
+                        selected: mode == 'SEBAGIAN',
+                        onSelected: saving
+                            ? null
+                            : (_) => setDialogState(() {
+                                mode = 'SEBAGIAN';
+                                amountController.text = _rupiahInputValue(
+                                  suggestedAmount,
+                                );
+                              }),
+                      ),
+                    ],
+                  ),
+                  if (mode == 'SEBAGIAN') ...[
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: amountController,
+                      enabled: !saving,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [_rupiahInputFormatter],
+                      decoration: InputDecoration(
+                        labelText: isTitip
+                            ? 'Total yang terjual (Rp)'
+                            : 'Nominal bayar (Rp)',
+                        prefixText: 'Rp ',
+                      ),
+                      onChanged: (_) => setDialogState(() {}),
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Sumber dana',
+                    style: TextStyle(fontSize: 13, color: _muted),
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    children:
+                        [
+                          ('LACI', 'Laci kasir'),
+                          ('CASHFLOW', 'Cashflow'),
+                          ('BANK', 'Bank'),
+                          ('CAMPUR', 'Campur'),
+                        ].map((option) {
+                          final (value, label) = option;
+                          return ChoiceChip(
+                            label: Text(label),
+                            selected: method == value,
+                            onSelected: saving
+                                ? null
+                                : (_) => setDialogState(() => method = value),
+                          );
+                        }).toList(),
+                  ),
+                  if (method == 'CAMPUR') ...[
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: laciController,
+                      enabled: !saving,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [_rupiahInputFormatter],
+                      decoration: const InputDecoration(
+                        labelText: 'Laci kasir (Rp)',
+                        prefixText: 'Rp ',
+                      ),
+                      onChanged: (_) => setDialogState(() {}),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: cashflowController,
+                      enabled: !saving,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [_rupiahInputFormatter],
+                      decoration: const InputDecoration(
+                        labelText: 'Cashflow (Rp)',
+                        prefixText: 'Rp ',
+                      ),
+                      onChanged: (_) => setDialogState(() {}),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: bankController,
+                      enabled: !saving,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [_rupiahInputFormatter],
+                      decoration: const InputDecoration(
+                        labelText: 'Bank (Rp)',
+                        prefixText: 'Rp ',
+                      ),
+                      onChanged: (_) => setDialogState(() {}),
+                    ),
+                    if (mixedDifference != 0) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        mixedDifference > 0
+                            ? 'Kurang ${_money(mixedDifference)} dari total pembayaran.'
+                            : 'Lebih ${_money(-mixedDifference)} dari total pembayaran.',
+                        style: const TextStyle(
+                          color: Color(0xFFCE7B20),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                  const SizedBox(height: 12),
+                  Text(
+                    'Total dibayar: ${_money(selectedPayment)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  if (dialogError != null) ...[
+                    const SizedBox(height: 10),
+                    ErrorBanner(message: dialogError!),
+                  ],
                 ],
-                onChanged: (value) =>
-                    setDialogState(() => method = value ?? 'LACI'),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: saving
+                    ? null
+                    : () => Navigator.pop(dialogContext, false),
+                child: const Text('Batal'),
+              ),
+              FilledButton(
+                onPressed: saving
+                    ? null
+                    : () async {
+                        final maxAmount = isTitip ? grossAmount : remaining;
+                        if (enteredAmount > maxAmount) {
+                          setDialogState(
+                            () => dialogError =
+                                'Pembayaran melebihi batas ${_money(maxAmount)}.',
+                          );
+                          return;
+                        }
+                        if (isTitip && enteredAmount < paidAmount) {
+                          setDialogState(
+                            () => dialogError =
+                                'Total terjual tidak boleh kurang dari jumlah yang sudah dibayar (${_money(paidAmount)}).',
+                          );
+                          return;
+                        }
+                        final completesTitipWithoutAdditionalPayment =
+                            isTitip && totalPayment == 0;
+                        if (totalPayment <= 0 &&
+                            !completesTitipWithoutAdditionalPayment) {
+                          setDialogState(
+                            () => dialogError =
+                                'Jumlah pembayaran harus lebih dari 0.',
+                          );
+                          return;
+                        }
+                        if (method == 'CAMPUR' &&
+                            (mixedTotal != expectedMixedTotal ||
+                                (mixedTotal <= 0 &&
+                                    !completesTitipWithoutAdditionalPayment))) {
+                          setDialogState(
+                            () => dialogError = 'Rincian laci, cashflow, dan bank harus sama dengan total pembayaran.',
+                          );
+                          return;
+                        }
+
+                        setDialogState(() {
+                          saving = true;
+                          dialogError = null;
+                        });
+                        try {
+                          final paymentDetails = {
+                            'metode': method,
+                            'tanggal': _dateString(paymentDate),
+                            if (method == 'CAMPUR') ...{
+                              'dariLaci': _number(laciController),
+                              'dariCashflow': _number(cashflowController),
+                              'dariBank': _number(bankController),
+                            },
+                          };
+                          if (isTitip) {
+                            await ApiClient.post(
+                              '/bon/${bon['id']}/selesaikan-titip',
+                              body: {
+                                ...paymentDetails,
+                                'jumlahAkhir': enteredAmount,
+                              },
+                            );
+                          } else {
+                            await ApiClient.post(
+                              '/bon/${bon['id']}/pay',
+                              body: {
+                                ...paymentDetails,
+                                if (method != 'CAMPUR') 'jumlah': totalPayment,
+                              },
+                            );
+                          }
+                          if (dialogContext.mounted) {
+                            Navigator.pop(dialogContext, true);
+                          }
+                        } catch (error) {
+                          setDialogState(() => dialogError = _errorText(error));
+                        } finally {
+                          if (dialogContext.mounted) {
+                            setDialogState(() => saving = false);
+                          }
+                        }
+                      },
+                child: Text(saving ? 'Menyimpan...' : 'Simpan pembayaran'),
               ),
             ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Batal'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Simpan'),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
-    if (result != true) {
-      amountController.dispose();
-      return;
-    }
-    final enteredAmount =
-        double.tryParse(
-          amountController.text.replaceAll(RegExp(r'[^0-9]'), ''),
-        ) ??
-        suggestedAmount;
     amountController.dispose();
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      if (bon['tipe'] == 'TITIP') {
-        await ApiClient.post(
-          '/bon/${bon['id']}/selesaikan-titip',
-          body: {'jumlahAkhir': enteredAmount, 'metode': method},
-        );
-      } else {
-        await ApiClient.post(
-          '/bon/${bon['id']}/pay',
-          body: {'jumlah': enteredAmount, 'metode': method},
-        );
-      }
-      await _load();
-    } catch (e) {
-      setState(() {
-        _error = _errorText(e);
-        _loading = false;
-      });
-    }
+    laciController.dispose();
+    cashflowController.dispose();
+    bankController.dispose();
+    if (result == true) await _load();
   }
 
   Future<void> _delete(Map<String, dynamic> bon) async {
