@@ -834,7 +834,9 @@ class _DailyPageState extends State<DailyPage> {
       final matching = _closings.cast<Map>().where(
         (entry) => entry['sumber'] == _source,
       );
-      _sales.text = matching.isEmpty ? '' : '${matching.first['omset'] ?? ''}';
+      _sales.text = matching.isEmpty
+          ? ''
+          : _rupiahInputValue((matching.first['omset'] as num? ?? 0));
       _note.text = matching.isEmpty ? '' : '${matching.first['catatan'] ?? ''}';
     });
   }
@@ -1312,6 +1314,7 @@ class _DailyPageState extends State<DailyPage> {
                   TextField(
                     controller: _sales,
                     keyboardType: TextInputType.number,
+                    inputFormatters: [_rupiahInputFormatter],
                     decoration: const InputDecoration(
                       labelText: 'Omset (Rp)',
                       prefixText: 'Rp ',
@@ -1695,7 +1698,9 @@ class _BonPageState extends State<BonPage> {
       setState(() {
         _bon = result;
         _date.text = _inputDate(result['tanggal']) ?? _dateString();
-        _amount.text = result['jumlah'] == null ? '' : '${result['jumlah']}';
+        _amount.text = result['jumlah'] == null
+            ? ''
+            : _rupiahInputValue(result['jumlah'] as num);
         _supplier.text = '${result['supplier'] ?? ''}';
         _dueDate.text = _inputDate(result['jatuhTempo']) ?? '';
       });
@@ -2449,7 +2454,10 @@ class _BillsPageState extends State<BillsPage> {
 
   Future<void> _edit(Map<String, dynamic> bon) async {
     final date = TextEditingController(text: _inputDate(bon['tanggal']) ?? '');
-    final amount = TextEditingController(text: '${bon['jumlah'] ?? ''}');
+    final amountValue = bon['jumlah'];
+    final amount = TextEditingController(
+      text: amountValue is num ? _rupiahInputValue(amountValue) : '',
+    );
     final supplier = TextEditingController(text: '${bon['supplier'] ?? ''}');
     final dueDate = TextEditingController(
       text: _inputDate(bon['jatuhTempo']) ?? '',
@@ -2473,6 +2481,7 @@ class _BillsPageState extends State<BillsPage> {
               TextField(
                 controller: amount,
                 keyboardType: TextInputType.number,
+                inputFormatters: [_rupiahInputFormatter],
                 decoration: const InputDecoration(labelText: 'Jumlah (Rp)'),
               ),
               const SizedBox(height: 10),
