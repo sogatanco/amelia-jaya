@@ -438,7 +438,7 @@ bonRouter.post('/:id/pay', async (req, res) => {
         paidAmount: paidAmountBaru,
         caraBayar: metode,
         status: lunas ? 'LUNAS' : 'BELUM_LUNAS',
-        paidAt: lunas ? new Date() : null,
+        paidAt: lunas ? tanggalBayar : null,
       },
     });
   });
@@ -538,7 +538,7 @@ bonRouter.post('/:id/selesaikan-titip', async (req, res) => {
         paidAmount: jumlahAkhir,
         caraBayar: metode,
         status: 'LUNAS',
-        paidAt: new Date(),
+        paidAt: tanggalBayar,
       },
     });
   });

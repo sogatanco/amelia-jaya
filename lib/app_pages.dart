@@ -690,19 +690,32 @@ class DailyPage extends StatefulWidget {
 }
 
 class _DailyPageState extends State<DailyPage> {
+  static const _billExpenseCategories = [
+    'Bayar Tagihan Rokok',
+    'Bayar Tagihan Barang Lainnya',
+    'Bayar Barang Titip',
+  ];
+
   List<dynamic> _dates = [];
   List<dynamic> _closings = [];
   List<dynamic> _expenses = [];
+  List<dynamic> _unpaidBills = [];
   List<String> _categories = [];
   DateTime _selectedDate = DateTime.now();
   String _source = 'KASIR';
   String _expenseSource = 'LACI';
+  String? _loadedBillCategory;
+  int _billRequestId = 0;
+  bool _loadingBills = false;
   final _sales = TextEditingController();
   final _note = TextEditingController();
   final _category = TextEditingController();
   final _categoryFocusNode = FocusNode();
   final _expenseAmount = TextEditingController();
   final _expenseNote = TextEditingController();
+  final _expenseLaci = TextEditingController();
+  final _expenseCashflow = TextEditingController();
+  final _expenseBank = TextEditingController();
   String? _error;
   String? _success;
   bool _loading = true;
@@ -712,6 +725,7 @@ class _DailyPageState extends State<DailyPage> {
   @override
   void initState() {
     super.initState();
+    _category.addListener(_handleExpenseCategoryChanged);
     _loadDates();
     _loadCategories();
   }
@@ -724,6 +738,9 @@ class _DailyPageState extends State<DailyPage> {
     _categoryFocusNode.dispose();
     _expenseAmount.dispose();
     _expenseNote.dispose();
+    _expenseLaci.dispose();
+    _expenseCashflow.dispose();
+    _expenseBank.dispose();
     super.dispose();
   }
 
@@ -746,10 +763,61 @@ class _DailyPageState extends State<DailyPage> {
     try {
       final values = await ApiClient.list('/expenses/categories');
       if (mounted) {
-        setState(() => _categories = values.map((e) => '$e').toList());
+        setState(
+          () => _categories = {
+            ..._billExpenseCategories,
+            ...values.map((e) => '$e'),
+          }.toList(),
+        );
       }
     } catch (e) {
       if (mounted) setState(() => _error = _errorText(e));
+    }
+  }
+
+  void _handleExpenseCategoryChanged() {
+    final category = _category.text.trim();
+    if (!mounted) return;
+    setState(() {});
+    if (_billExpenseCategories.contains(category)) {
+      if (_loadedBillCategory != category) {
+        _loadUnpaidBills(category);
+      }
+    } else if (_loadedBillCategory != null || _unpaidBills.isNotEmpty) {
+      _billRequestId++;
+      setState(() {
+        _loadedBillCategory = null;
+        _unpaidBills = [];
+        _loadingBills = false;
+      });
+    }
+  }
+
+  Future<void> _loadUnpaidBills(String category) async {
+    final requestId = ++_billRequestId;
+    final type = category == 'Bayar Barang Titip' ? 'TITIP' : 'CREDIT';
+    setState(() {
+      _loadedBillCategory = category;
+      _loadingBills = true;
+      _unpaidBills = [];
+      _error = null;
+    });
+    try {
+      final bills = await ApiClient.list(
+        '/bon',
+        query: {'tipe': type, 'status': 'BELUM_LUNAS'},
+      );
+      if (mounted && requestId == _billRequestId) {
+        setState(() => _unpaidBills = bills);
+      }
+    } catch (e) {
+      if (mounted && requestId == _billRequestId) {
+        setState(() => _error = _errorText(e));
+      }
+    } finally {
+      if (mounted && requestId == _billRequestId) {
+        setState(() => _loadingBills = false);
+      }
     }
   }
 
@@ -839,9 +907,21 @@ class _DailyPageState extends State<DailyPage> {
   }
 
   Future<void> _addExpense() async {
-    if (_category.text.trim().isEmpty || _number(_expenseAmount) <= 0) {
+    final amount = _number(_expenseAmount);
+    if (_category.text.trim().isEmpty || amount <= 0) {
       setState(
         () => _error = 'Isi kategori dan jumlah pengeluaran yang valid.',
+      );
+      return;
+    }
+    final laci = _expenseSource == 'CAMPUR' ? _number(_expenseLaci) : 0;
+    final cashflow = _expenseSource == 'CAMPUR' ? _number(_expenseCashflow) : 0;
+    final bank = _expenseSource == 'CAMPUR' ? _number(_expenseBank) : 0;
+    if (_expenseSource == 'CAMPUR' &&
+        (laci + cashflow + bank != amount ||
+            (laci == 0 && cashflow == 0 && bank == 0))) {
+      setState(
+        () => _error = 'Rincian laci, cashflow, dan bank harus sama dengan jumlah pengeluaran.',
       );
       return;
     }
@@ -851,17 +931,295 @@ class _DailyPageState extends State<DailyPage> {
         body: {
           'tanggal': _date,
           'kategori': _category.text.trim(),
-          'jumlah': _number(_expenseAmount),
+          'jumlah': amount,
           'keterangan': _expenseNote.text.trim(),
           'sumberDana': _expenseSource,
+          'dariLaci': _expenseSource == 'CAMPUR'
+              ? laci
+              : _expenseSource == 'LACI'
+              ? amount
+              : 0,
+          'dariCashflow': _expenseSource == 'CAMPUR'
+              ? cashflow
+              : _expenseSource == 'CASHFLOW'
+              ? amount
+              : 0,
+          'dariBank': _expenseSource == 'CAMPUR'
+              ? bank
+              : _expenseSource == 'BANK'
+              ? amount
+              : 0,
         },
       );
       _category.clear();
       _expenseAmount.clear();
       _expenseNote.clear();
+      _expenseLaci.clear();
+      _expenseCashflow.clear();
+      _expenseBank.clear();
+      setState(() => _expenseSource = 'LACI');
       await _loadForDate();
       setState(() => _success = 'Pengeluaran berhasil ditambahkan.');
     });
+  }
+
+  Future<void> _payDailyBill(Map<String, dynamic> bill) async {
+    final amountController = TextEditingController();
+    final laciController = TextEditingController();
+    final cashflowController = TextEditingController();
+    final bankController = TextEditingController();
+    final totalAmount = (bill['jumlah'] as num? ?? 0).toDouble();
+    final paidAmount = (bill['paidAmount'] as num? ?? 0).toDouble();
+    final remaining = (totalAmount - paidAmount).clamp(0, double.infinity);
+    final isTitip = bill['tipe'] == 'TITIP';
+    final suggestedAmount = isTitip ? totalAmount : remaining;
+    amountController.text = _rupiahInputValue(suggestedAmount);
+    var paymentMode = 'PENUH';
+    var paymentSource = 'LACI';
+    var saving = false;
+    String? dialogError;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final enteredAmount = paymentMode == 'PENUH'
+              ? suggestedAmount
+              : _number(amountController);
+          final amountToPay = isTitip
+              ? enteredAmount - paidAmount
+              : enteredAmount;
+          final mixedTotal =
+              _number(laciController) +
+              _number(cashflowController) +
+              _number(bankController);
+          final payableAmount = paymentSource == 'CAMPUR'
+              ? mixedTotal
+              : amountToPay;
+
+          return AlertDialog(
+            title: Text(isTitip ? 'Selesaikan barang titip' : 'Bayar tagihan'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${bill['supplier'] ?? 'Tanpa nama supplier'} · '
+                    'Sisa: ${_money(remaining)}',
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      ChoiceChip(
+                        label: Text(isTitip ? 'Semua terjual' : 'Bayar penuh'),
+                        selected: paymentMode == 'PENUH',
+                        onSelected: saving
+                            ? null
+                            : (_) => setDialogState(() {
+                                paymentMode = 'PENUH';
+                                amountController.text = _rupiahInputValue(
+                                  suggestedAmount,
+                                );
+                              }),
+                      ),
+                      ChoiceChip(
+                        label: Text(
+                          isTitip ? 'Ada retur / tidak laku' : 'Bayar sebagian',
+                        ),
+                        selected: paymentMode == 'SEBAGIAN',
+                        onSelected: saving
+                            ? null
+                            : (_) => setDialogState(() {
+                                paymentMode = 'SEBAGIAN';
+                                amountController.text = _rupiahInputValue(
+                                  suggestedAmount,
+                                );
+                              }),
+                      ),
+                    ],
+                  ),
+                  if (paymentMode == 'SEBAGIAN') ...[
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: amountController,
+                      enabled: !saving,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [_rupiahInputFormatter],
+                      decoration: InputDecoration(
+                        labelText: isTitip
+                            ? 'Total yang terjual (Rp)'
+                            : 'Jumlah pembayaran (Rp)',
+                        prefixText: 'Rp ',
+                      ),
+                      onChanged: (_) => setDialogState(() {}),
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    children:
+                        [
+                          ('LACI', 'Laci kasir'),
+                          ('CASHFLOW', 'Cashflow'),
+                          ('BANK', 'Bank'),
+                          ('CAMPUR', 'Campur'),
+                        ].map((option) {
+                          final (value, label) = option;
+                          return ChoiceChip(
+                            label: Text(label),
+                            selected: paymentSource == value,
+                            onSelected: saving
+                                ? null
+                                : (_) => setDialogState(
+                                    () => paymentSource = value,
+                                  ),
+                          );
+                        }).toList(),
+                  ),
+                  if (paymentSource == 'CAMPUR') ...[
+                    const SizedBox(height: 8),
+                    for (final field in [
+                      (laciController, 'Laci kasir'),
+                      (cashflowController, 'Cashflow'),
+                      (bankController, 'Bank'),
+                    ]) ...[
+                      TextField(
+                        controller: field.$1,
+                        enabled: !saving,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [_rupiahInputFormatter],
+                        decoration: InputDecoration(
+                          labelText: '${field.$2} (Rp)',
+                          prefixText: 'Rp ',
+                        ),
+                        onChanged: (_) => setDialogState(() {}),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    if (mixedTotal != amountToPay)
+                      Text(
+                        mixedTotal < amountToPay
+                            ? 'Kurang ${_money(amountToPay - mixedTotal)} dari total pembayaran.'
+                            : 'Lebih ${_money(mixedTotal - amountToPay)} dari total pembayaran.',
+                        style: const TextStyle(
+                          color: Color(0xFFCE7B20),
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
+                  const SizedBox(height: 8),
+                  Text(
+                    'Total dibayar: ${_money(payableAmount)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  if (dialogError != null) ...[
+                    const SizedBox(height: 8),
+                    ErrorBanner(message: dialogError!),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: saving
+                    ? null
+                    : () => Navigator.pop(dialogContext, false),
+                child: const Text('Batal'),
+              ),
+              FilledButton(
+                onPressed: saving
+                    ? null
+                    : () async {
+                        final maxAmount = isTitip ? totalAmount : remaining;
+                        final noAdditionalTitipPayment =
+                            isTitip && amountToPay == 0;
+                        if (enteredAmount > maxAmount ||
+                            enteredAmount < paidAmount) {
+                          setDialogState(
+                            () => dialogError =
+                                'Jumlah di luar batas nilai tagihan (${_money(paidAmount)}–${_money(maxAmount)}).',
+                          );
+                          return;
+                        }
+                        if (amountToPay <= 0 && !noAdditionalTitipPayment) {
+                          setDialogState(
+                            () => dialogError =
+                                'Jumlah pembayaran harus lebih dari 0.',
+                          );
+                          return;
+                        }
+                        if (paymentSource == 'CAMPUR' &&
+                            (mixedTotal != amountToPay ||
+                                (mixedTotal <= 0 &&
+                                    !noAdditionalTitipPayment))) {
+                          setDialogState(
+                            () => dialogError = 'Rincian sumber dana harus sama dengan jumlah pembayaran.',
+                          );
+                          return;
+                        }
+
+                        setDialogState(() {
+                          saving = true;
+                          dialogError = null;
+                        });
+                        try {
+                          final paymentDetails = {
+                            'tanggal': _date,
+                            'metode': paymentSource,
+                            if (paymentSource == 'CAMPUR') ...{
+                              'dariLaci': _number(laciController),
+                              'dariCashflow': _number(cashflowController),
+                              'dariBank': _number(bankController),
+                            },
+                          };
+                          if (isTitip) {
+                            await ApiClient.post(
+                              '/bon/${bill['id']}/selesaikan-titip',
+                              body: {
+                                ...paymentDetails,
+                                'jumlahAkhir': enteredAmount,
+                              },
+                            );
+                          } else {
+                            await ApiClient.post(
+                              '/bon/${bill['id']}/pay',
+                              body: {
+                                ...paymentDetails,
+                                if (paymentSource != 'CAMPUR')
+                                  'jumlah': amountToPay,
+                              },
+                            );
+                          }
+                          if (dialogContext.mounted) {
+                            Navigator.pop(dialogContext, true);
+                          }
+                        } catch (error) {
+                          if (dialogContext.mounted) {
+                            setDialogState(() {
+                              dialogError = _errorText(error);
+                              saving = false;
+                            });
+                          }
+                        }
+                      },
+                child: Text(saving ? 'Menyimpan...' : 'Simpan pembayaran'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    amountController.dispose();
+    laciController.dispose();
+    cashflowController.dispose();
+    bankController.dispose();
+    if (saved == true && mounted) {
+      await _loadForDate();
+      await _loadUnpaidBills(_category.text.trim());
+    }
   }
 
   Future<void> _deleteExpense(String id) async {
@@ -1046,14 +1404,71 @@ class _DailyPageState extends State<DailyPage> {
                       ),
                     ),
                   ),
+                  if (_billExpenseCategories.contains(
+                    _category.text.trim(),
+                  )) ...[
+                    const SizedBox(height: 10),
+                    _SectionCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _category.text.trim() == 'Bayar Barang Titip'
+                                ? 'Bon barang titip belum selesai'
+                                : 'Tagihan belum lunas',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 8),
+                          if (_loadingBills)
+                            const Center(child: CircularProgressIndicator())
+                          else if (_unpaidBills.isEmpty)
+                            const Text(
+                              'Tidak ada tagihan yang belum lunas.',
+                              style: TextStyle(color: _muted, fontSize: 12),
+                            )
+                          else
+                            ..._unpaidBills.map((value) {
+                              final bill = _map(value);
+                              final remaining =
+                                  ((bill['jumlah'] as num? ?? 0) -
+                                          (bill['paidAmount'] as num? ?? 0))
+                                      .clamp(0, double.infinity);
+                              final dueDate = bill['jatuhTempo'];
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(
+                                  '${bill['supplier'] ?? 'Tanpa nama supplier'}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  'Sisa: ${_money(remaining)}'
+                                  '${dueDate == null ? '' : ' · Jatuh tempo ${_dateLabel(dueDate)}'}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                trailing: TextButton(
+                                  onPressed: _loading
+                                      ? null
+                                      : () => _payDailyBill(bill),
+                                  child: const Text('Bayar'),
+                                ),
+                              );
+                            }),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 10),
                   TextField(
                     controller: _expenseAmount,
                     keyboardType: TextInputType.number,
+                    inputFormatters: [_rupiahInputFormatter],
                     decoration: const InputDecoration(
                       labelText: 'Jumlah (Rp)',
                       prefixText: 'Rp ',
                     ),
+                    onChanged: (_) => setState(() {}),
                   ),
                   const SizedBox(height: 10),
                   TextField(
@@ -1079,10 +1494,51 @@ class _DailyPageState extends State<DailyPage> {
                         value: 'BANK',
                         child: Text('Bank / transfer'),
                       ),
+                      DropdownMenuItem(value: 'CAMPUR', child: Text('Campur')),
                     ],
                     onChanged: (value) =>
                         setState(() => _expenseSource = value ?? 'LACI'),
                   ),
+                  if (_expenseSource == 'CAMPUR') ...[
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _expenseLaci,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [_rupiahInputFormatter],
+                      decoration: const InputDecoration(
+                        labelText: 'Dari laci kasir (Rp)',
+                        prefixText: 'Rp ',
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _expenseCashflow,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [_rupiahInputFormatter],
+                      decoration: const InputDecoration(
+                        labelText: 'Dari cashflow (Rp)',
+                        prefixText: 'Rp ',
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _expenseBank,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [_rupiahInputFormatter],
+                      decoration: const InputDecoration(
+                        labelText: 'Dari bank (Rp)',
+                        prefixText: 'Rp ',
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Total rincian: ${_money(_number(_expenseLaci) + _number(_expenseCashflow) + _number(_expenseBank))} · Jumlah: ${_money(_number(_expenseAmount))}',
+                      style: const TextStyle(fontSize: 12, color: _muted),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   _BusyButton(
                     label: 'Tambah Pengeluaran',
@@ -1101,11 +1557,19 @@ class _DailyPageState extends State<DailyPage> {
                   else
                     ..._expenses.map((entry) {
                       final e = _map(entry);
+                      final sources = [
+                        if ((e['dariLaci'] as num? ?? 0) > 0)
+                          'Laci: ${_money(e['dariLaci'])}',
+                        if ((e['dariCashflow'] as num? ?? 0) > 0)
+                          'Cashflow: ${_money(e['dariCashflow'])}',
+                        if ((e['dariBank'] as num? ?? 0) > 0)
+                          'Bank: ${_money(e['dariBank'])}',
+                      ];
                       return _DataTile(
                         icon: Icons.payments_outlined,
                         title: '${e['kategori'] ?? 'Pengeluaran'}',
                         subtitle:
-                            '${e['sumberDana'] ?? 'LACI'}${(e['keterangan'] ?? '').toString().isNotEmpty ? ' · ${e['keterangan']}' : ''}',
+                            '${sources.isEmpty ? e['sumberDana'] ?? 'LACI' : sources.join(' · ')}${(e['keterangan'] ?? '').toString().isNotEmpty ? ' · ${e['keterangan']}' : ''}',
                         trailing: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.end,
@@ -1153,6 +1617,7 @@ class _BonPageState extends State<BonPage> {
   final _amount = TextEditingController();
   final _supplier = TextEditingController();
   final _category = TextEditingController();
+  final _categoryFocusNode = FocusNode();
   final _dueDate = TextEditingController();
   List<String> _categories = [];
   File? _image;
@@ -1184,6 +1649,7 @@ class _BonPageState extends State<BonPage> {
     _amount.dispose();
     _supplier.dispose();
     _category.dispose();
+    _categoryFocusNode.dispose();
     _dueDate.dispose();
     super.dispose();
   }
@@ -1414,29 +1880,52 @@ class _BonPageState extends State<BonPage> {
                 ),
                 if (_type != 'TITIP') ...[
                   const SizedBox(height: 10),
-                  TextField(
-                    controller: _category,
-                    decoration: const InputDecoration(
-                      labelText: 'Kategori pengeluaran',
+                  RawAutocomplete<String>(
+                    textEditingController: _category,
+                    focusNode: _categoryFocusNode,
+                    optionsBuilder: (textEditingValue) {
+                      final query = textEditingValue.text.trim().toLowerCase();
+                      return _categories.where(
+                        (category) =>
+                            query.isEmpty ||
+                            category.toLowerCase().contains(query),
+                      );
+                    },
+                    fieldViewBuilder:
+                        (context, controller, focusNode, onFieldSubmitted) =>
+                            TextField(
+                              controller: controller,
+                              focusNode: focusNode,
+                              onSubmitted: (_) => onFieldSubmitted(),
+                              decoration: const InputDecoration(
+                                labelText: 'Kategori pengeluaran',
+                                hintText: 'Ketik untuk mencari kategori',
+                              ),
+                            ),
+                    optionsViewBuilder: (context, onSelected, options) => Align(
+                      alignment: Alignment.topLeft,
+                      child: Material(
+                        elevation: 4,
+                        borderRadius: BorderRadius.circular(12),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 200),
+                          child: ListView(
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            children: options
+                                .map(
+                                  (category) => ListTile(
+                                    dense: true,
+                                    title: Text(category),
+                                    onTap: () => onSelected(category),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                  if (_categories.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: _categories
-                          .take(5)
-                          .map(
-                            (category) => ActionChip(
-                              label: Text(category),
-                              onPressed: () =>
-                                  setState(() => _category.text = category),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ],
                 ],
                 if (_type == 'CREDIT') ...[
                   const SizedBox(height: 10),
@@ -1445,9 +1934,20 @@ class _BonPageState extends State<BonPage> {
                     readOnly: true,
                     decoration: InputDecoration(
                       labelText: 'Jatuh tempo (opsional)',
-                      suffixIcon: IconButton(
-                        onPressed: () => _pickDate(_dueDate),
-                        icon: const Icon(Icons.calendar_month),
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            onPressed: () =>
+                                _pickDate(_dueDate, allowFuture: true),
+                            icon: const Icon(Icons.calendar_month),
+                          ),
+                          IconButton(
+                            tooltip: 'Hapus tanggal jatuh tempo',
+                            onPressed: _dueDate.clear,
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -1489,13 +1989,19 @@ class _BonPageState extends State<BonPage> {
     ),
   );
 
-  Future<void> _pickDate(TextEditingController target) async {
+  Future<void> _pickDate(
+    TextEditingController target, {
+    bool allowFuture = false,
+  }) async {
     final selected = DateTime.tryParse(target.text) ?? DateTime.now();
     final value = await showDatePicker(
       context: context,
       initialDate: selected,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      lastDate: allowFuture
+          ? DateTime(2100)
+          : DateUtils.dateOnly(DateTime.now()),
+      locale: const Locale('id'),
     );
     if (value != null) target.text = _dateString(value);
   }
@@ -1837,10 +2343,11 @@ class _BillsPageState extends State<BillsPage> {
                             Navigator.pop(dialogContext, true);
                           }
                         } catch (error) {
-                          setDialogState(() => dialogError = _errorText(error));
-                        } finally {
                           if (dialogContext.mounted) {
-                            setDialogState(() => saving = false);
+                            setDialogState(() {
+                              dialogError = _errorText(error);
+                              saving = false;
+                            });
                           }
                         }
                       },
@@ -1910,8 +2417,36 @@ class _BillsPageState extends State<BillsPage> {
               const SizedBox(height: 10),
               TextField(
                 controller: dueDate,
-                decoration: const InputDecoration(
+                readOnly: true,
+                decoration: InputDecoration(
                   labelText: 'Jatuh tempo (opsional)',
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Pilih tanggal jatuh tempo',
+                        onPressed: () async {
+                          final currentDate = DateTime.tryParse(dueDate.text);
+                          final chosen = await showDatePicker(
+                            context: context,
+                            initialDate: currentDate ?? DateTime.now(),
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2100),
+                            locale: const Locale('id'),
+                          );
+                          if (chosen != null) {
+                            dueDate.text = _dateString(chosen);
+                          }
+                        },
+                        icon: const Icon(Icons.calendar_month_outlined),
+                      ),
+                      IconButton(
+                        tooltip: 'Hapus tanggal jatuh tempo',
+                        onPressed: () => dueDate.clear(),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -2341,6 +2876,11 @@ class _BillsPageState extends State<BillsPage> {
                               _LabelValue(
                                 'Jatuh tempo',
                                 _dateLabel(item['jatuhTempo']),
+                              ),
+                            if (_filter == 'LUNAS' && item['paidAt'] != null)
+                              _LabelValue(
+                                'Tanggal dibayar',
+                                _dateLabel(item['paidAt']),
                               ),
                             if (paid > 0) _LabelValue('Terbayar', _money(paid)),
                           ],
@@ -3203,7 +3743,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
         const SizedBox(width: 8),
         Expanded(child: Text(label, style: const TextStyle(fontSize: 13))),
         Text(
-          ready == null ? 'Memeriksa' : ready ? 'Siap' : 'Belum',
+          ready == null
+              ? 'Memeriksa'
+              : ready
+              ? 'Siap'
+              : 'Belum',
           style: TextStyle(
             color: ready == true ? _brand : const Color(0xFFCE7B20),
             fontSize: 12,
@@ -3312,7 +3856,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       fontSize: 12,
                     ),
                   ),
-                  if (_deliveryStatus!['deviceRegistrationError'] is String) ...[
+                  if (_deliveryStatus!['deviceRegistrationError']
+                      is String) ...[
                     const SizedBox(height: 8),
                     Text(
                       '${_deliveryStatus!['deviceRegistrationError']}',
@@ -3327,10 +3872,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     const Text(
                       'Server belum memiliki kredensial Firebase Admin SDK. '
                       'Minta admin server mengatur kredensial Firebase project Amelia Jaya.',
-                      style: TextStyle(
-                        color: Color(0xFFB42318),
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: Color(0xFFB42318), fontSize: 12),
                     ),
                   ],
                 ],
