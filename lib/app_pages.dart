@@ -1619,6 +1619,9 @@ class _BonPageState extends State<BonPage> {
   final _category = TextEditingController();
   final _categoryFocusNode = FocusNode();
   final _dueDate = TextEditingController();
+  final _cashLaci = TextEditingController();
+  final _cashCashflow = TextEditingController();
+  final _cashBank = TextEditingController();
   List<String> _categories = [];
   File? _image;
   Map<String, dynamic>? _bon;
@@ -1651,6 +1654,9 @@ class _BonPageState extends State<BonPage> {
     _category.dispose();
     _categoryFocusNode.dispose();
     _dueDate.dispose();
+    _cashLaci.dispose();
+    _cashCashflow.dispose();
+    _cashBank.dispose();
     super.dispose();
   }
 
@@ -1714,6 +1720,19 @@ class _BonPageState extends State<BonPage> {
       );
       return;
     }
+    final dariLaci = _source == 'CAMPUR' ? _number(_cashLaci) : 0;
+    final dariCashflow = _source == 'CAMPUR' ? _number(_cashCashflow) : 0;
+    final dariBank = _source == 'CAMPUR' ? _number(_cashBank) : 0;
+    if (_type == 'CASH' &&
+        _source == 'CAMPUR' &&
+        (dariLaci + dariCashflow + dariBank != amount ||
+            (dariLaci == 0 && dariCashflow == 0 && dariBank == 0))) {
+      setState(
+        () => _error =
+            'Rincian laci, cashflow, dan bank harus sama dengan jumlah bon.',
+      );
+      return;
+    }
     setState(() {
       _saving = true;
       _error = null;
@@ -1731,7 +1750,24 @@ class _BonPageState extends State<BonPage> {
                 : _category.text.trim(),
           if (_type == 'CREDIT' && _dueDate.text.isNotEmpty)
             'jatuhTempo': _dueDate.text,
-          if (_type == 'CASH') 'sumberDana': _source,
+          if (_type == 'CASH') ...{
+            'sumberDana': _source,
+            'dariLaci': _source == 'CAMPUR'
+                ? dariLaci
+                : _source == 'LACI'
+                ? amount
+                : 0,
+            'dariCashflow': _source == 'CAMPUR'
+                ? dariCashflow
+                : _source == 'CASHFLOW'
+                ? amount
+                : 0,
+            'dariBank': _source == 'CAMPUR'
+                ? dariBank
+                : _source == 'BANK'
+                ? amount
+                : 0,
+          },
         },
       );
       setState(() {
@@ -1741,6 +1777,9 @@ class _BonPageState extends State<BonPage> {
         _amount.clear();
         _supplier.clear();
         _category.clear();
+        _cashLaci.clear();
+        _cashCashflow.clear();
+        _cashBank.clear();
       });
     } catch (e) {
       setState(() => _error = _errorText(e));
@@ -1866,10 +1905,12 @@ class _BonPageState extends State<BonPage> {
                 TextField(
                   controller: _amount,
                   keyboardType: TextInputType.number,
+                  inputFormatters: [_rupiahInputFormatter],
                   decoration: const InputDecoration(
                     labelText: 'Jumlah (Rp)',
                     prefixText: 'Rp ',
                   ),
+                  onChanged: (_) => setState(() {}),
                 ),
                 const SizedBox(height: 10),
                 TextField(
@@ -1970,10 +2011,35 @@ class _BonPageState extends State<BonPage> {
                         value: 'BANK',
                         child: Text('Bank / transfer'),
                       ),
+                      DropdownMenuItem(value: 'CAMPUR', child: Text('Campur')),
                     ],
                     onChanged: (value) =>
                         setState(() => _source = value ?? 'LACI'),
                   ),
+                  if (_source == 'CAMPUR') ...[
+                    const SizedBox(height: 10),
+                    for (final field in [
+                      (_cashLaci, 'Dari laci kasir'),
+                      (_cashCashflow, 'Dari cashflow'),
+                      (_cashBank, 'Dari bank'),
+                    ]) ...[
+                      TextField(
+                        controller: field.$1,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [_rupiahInputFormatter],
+                        decoration: InputDecoration(
+                          labelText: '${field.$2} (Rp)',
+                          prefixText: 'Rp ',
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    Text(
+                      'Total rincian: ${_money(_number(_cashLaci) + _number(_cashCashflow) + _number(_cashBank))} · Jumlah bon: ${_money(_number(_amount))}',
+                      style: const TextStyle(fontSize: 12, color: _muted),
+                    ),
+                  ],
                 ],
                 const SizedBox(height: 14),
                 _BusyButton(
@@ -2513,48 +2579,149 @@ class _BillsPageState extends State<BillsPage> {
   }
 
   Future<void> _changePaymentSource(Map<String, dynamic> bon) async {
-    var method = <String>{'LACI', 'CASHFLOW', 'BANK'}.contains(bon['caraBayar'])
+    final paidAmount = (bon['paidAmount'] as num? ?? 0).toDouble();
+    final laciController = TextEditingController();
+    final cashflowController = TextEditingController();
+    final bankController = TextEditingController();
+    var method =
+        <String>{
+          'LACI',
+          'CASHFLOW',
+          'BANK',
+          'CAMPUR',
+        }.contains(bon['caraBayar'])
         ? bon['caraBayar'] as String
         : 'LACI';
-    final selected = await showDialog<String>(
+    var saving = false;
+    String? dialogError;
+    final selected = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Ubah sumber dana pembayaran'),
-          content: DropdownButtonFormField<String>(
-            initialValue: method,
-            decoration: const InputDecoration(labelText: 'Sumber dana'),
-            items: const [
-              DropdownMenuItem(value: 'LACI', child: Text('Laci kasir')),
-              DropdownMenuItem(value: 'CASHFLOW', child: Text('Cashflow')),
-              DropdownMenuItem(value: 'BANK', child: Text('Bank / transfer')),
+        builder: (dialogContext, setDialogState) {
+          final mixedTotal =
+              _number(laciController) +
+              _number(cashflowController) +
+              _number(bankController);
+          return AlertDialog(
+            title: const Text('Ubah sumber dana pembayaran'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Total sudah dibayar: ${_money(paidAmount)}'),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children:
+                        [
+                          ('LACI', 'Laci kasir'),
+                          ('CASHFLOW', 'Cashflow'),
+                          ('BANK', 'Bank'),
+                          ('CAMPUR', 'Campur'),
+                        ].map((option) {
+                          final (value, label) = option;
+                          return ChoiceChip(
+                            label: Text(label),
+                            selected: method == value,
+                            onSelected: saving
+                                ? null
+                                : (_) => setDialogState(() => method = value),
+                          );
+                        }).toList(),
+                  ),
+                  if (method == 'CAMPUR') ...[
+                    const SizedBox(height: 12),
+                    for (final field in [
+                      (laciController, 'Laci kasir'),
+                      (cashflowController, 'Cashflow'),
+                      (bankController, 'Bank'),
+                    ]) ...[
+                      TextField(
+                        controller: field.$1,
+                        enabled: !saving,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [_rupiahInputFormatter],
+                        decoration: InputDecoration(
+                          labelText: '${field.$2} (Rp)',
+                          prefixText: 'Rp ',
+                        ),
+                        onChanged: (_) => setDialogState(() {}),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    Text(
+                      'Total rincian: ${_money(mixedTotal)}',
+                      style: TextStyle(
+                        color: mixedTotal == paidAmount ? _brand : _muted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  if (dialogError != null) ...[
+                    const SizedBox(height: 10),
+                    ErrorBanner(message: dialogError!),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: saving
+                    ? null
+                    : () => Navigator.pop(dialogContext, false),
+                child: const Text('Batal'),
+              ),
+              FilledButton(
+                onPressed: saving
+                    ? null
+                    : () async {
+                        if (method == 'CAMPUR' && mixedTotal != paidAmount) {
+                          setDialogState(
+                            () => dialogError =
+                                'Total rincian campur harus sama dengan jumlah yang sudah dibayar (${_money(paidAmount)}).',
+                          );
+                          return;
+                        }
+                        setDialogState(() {
+                          saving = true;
+                          dialogError = null;
+                        });
+                        try {
+                          await ApiClient.post(
+                            '/bon/${bon['id']}/ubah-sumber-bayar',
+                            body: {
+                              'metode': method,
+                              if (method == 'CAMPUR') ...{
+                                'dariLaci': _number(laciController),
+                                'dariCashflow': _number(cashflowController),
+                                'dariBank': _number(bankController),
+                              },
+                            },
+                          );
+                          if (dialogContext.mounted) {
+                            Navigator.pop(dialogContext, true);
+                          }
+                        } catch (error) {
+                          if (dialogContext.mounted) {
+                            setDialogState(() {
+                              saving = false;
+                              dialogError = _errorText(error);
+                            });
+                          }
+                        }
+                      },
+                child: Text(saving ? 'Menyimpan...' : 'Simpan'),
+              ),
             ],
-            onChanged: (value) =>
-                setDialogState(() => method = value ?? 'LACI'),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Batal'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, method),
-              child: const Text('Simpan'),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
-    if (selected == null) return;
-    try {
-      await ApiClient.post(
-        '/bon/${bon['id']}/ubah-sumber-bayar',
-        body: {'metode': selected},
-      );
-      await _load();
-    } catch (e) {
-      setState(() => _error = _errorText(e));
-    }
+    laciController.dispose();
+    cashflowController.dispose();
+    bankController.dispose();
+    if (selected == true) await _load();
   }
 
   Future<void> _preview(Map<String, dynamic> bon) async {
