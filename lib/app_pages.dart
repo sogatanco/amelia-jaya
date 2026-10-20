@@ -1703,6 +1703,9 @@ class _BonPageState extends State<BonPage> {
             : _rupiahInputValue(result['jumlah'] as num);
         _supplier.text = '${result['supplier'] ?? ''}';
         _dueDate.text = _inputDate(result['jatuhTempo']) ?? '';
+        _cashLaci.clear();
+        _cashCashflow.clear();
+        _cashBank.clear();
       });
     } catch (e) {
       setState(() => _error = _errorText(e));
@@ -1917,6 +1920,16 @@ class _BonPageState extends State<BonPage> {
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
+                if (_type == 'CASH') ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Total bon tunai: ${_money(_number(_amount))}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: _ink,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 10),
                 TextField(
                   controller: _supplier,
@@ -2023,6 +2036,11 @@ class _BonPageState extends State<BonPage> {
                   ),
                   if (_source == 'CAMPUR') ...[
                     const SizedBox(height: 10),
+                    const Text(
+                      'Rincian sumber dana harus sesuai dengan total bon.',
+                      style: TextStyle(fontSize: 12, color: _muted),
+                    ),
+                    const SizedBox(height: 8),
                     for (final field in [
                       (_cashLaci, 'Dari laci kasir'),
                       (_cashCashflow, 'Dari cashflow'),
@@ -2044,6 +2062,24 @@ class _BonPageState extends State<BonPage> {
                       'Total rincian: ${_money(_number(_cashLaci) + _number(_cashCashflow) + _number(_cashBank))} · Jumlah bon: ${_money(_number(_amount))}',
                       style: const TextStyle(fontSize: 12, color: _muted),
                     ),
+                    if (_number(_cashLaci) +
+                            _number(_cashCashflow) +
+                            _number(_cashBank) !=
+                        _number(_amount)) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        _number(_cashLaci) +
+                                    _number(_cashCashflow) +
+                                    _number(_cashBank) <
+                                _number(_amount)
+                            ? 'Kurang ${_money(_number(_amount) - _number(_cashLaci) - _number(_cashCashflow) - _number(_cashBank))} dari total bon.'
+                            : 'Lebih ${_money(_number(_cashLaci) + _number(_cashCashflow) + _number(_cashBank) - _number(_amount))} dari total bon.',
+                        style: const TextStyle(
+                          color: Color(0xFFCE7B20),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ],
                 ],
                 const SizedBox(height: 14),
